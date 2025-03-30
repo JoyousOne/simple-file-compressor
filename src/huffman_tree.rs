@@ -1,19 +1,11 @@
 use std::{cmp::Ordering, collections::BinaryHeap};
 
-// type FrequencyChar = (char, usize);
 const INTERNAL_NODE_VALUE: char = '\0';
 
 #[derive(Debug, Eq, PartialEq, PartialOrd)]
 pub struct FrequencyChar(char, usize);
 
-// impl Ord for FrequencyChar {
-//     fn cmp(&self, other: &Self) -> Ordering {
-//         self.1.cmp(&other.1)
-//     }
-// }
-
 #[derive(Debug, Eq, PartialEq)]
-// #[derive(Eq, Ord, PartialEq, PartialOrd)]
 struct Node {
     pub frequency: usize,
     pub c: char,
