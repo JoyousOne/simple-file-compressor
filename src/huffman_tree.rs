@@ -3,7 +3,7 @@ use std::{cmp::Ordering, collections::BinaryHeap};
 const INTERNAL_NODE_VALUE: char = '\0';
 
 #[derive(Debug, Eq, PartialEq, PartialOrd)]
-pub struct FrequencyChar(char, usize);
+pub struct FrequencyChar(pub char, pub usize);
 
 #[derive(Debug, Eq, PartialEq)]
 struct Node {
