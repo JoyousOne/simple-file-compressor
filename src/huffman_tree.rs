@@ -1,4 +1,9 @@
-use std::{cmp::Ordering, collections::BinaryHeap};
+use std::{
+    cmp::Ordering,
+    collections::{BinaryHeap, HashMap},
+    ops::Index,
+    os::raw::c_ulonglong,
+};
 
 const INTERNAL_NODE_VALUE: char = '\0';
 
@@ -88,6 +93,7 @@ impl Node {
 
 pub struct HuffmanTree {
     root: Node,
+    encoding: HashMap<char, Vec<u8>>,
 }
 
 impl HuffmanTree {
@@ -142,15 +148,40 @@ impl HuffmanTree {
         // DEBUG
         // println!("value: {}, frequency: {}", root.c, root.frequency);
 
-        HuffmanTree { root }
+        let mut tree = HuffmanTree {
+            root,
+            encoding: HashMap::new(),
+        };
+
+        tree.set_encoding();
+
+        tree
     }
 
     pub fn get_encoding(&self) -> Vec<(char, Vec<u8>)> {
         self.root.get_encoding(Vec::new())
     }
 
+    fn set_encoding(&mut self) {
+        let encoding = self.get_encoding();
+
+        for (c, bits) in encoding {
+            self.encoding.insert(c, bits);
+        }
+    }
+
     pub fn print_encoding(&self) {
         self.root.print_encoding(Vec::new());
+    }
+}
+
+impl Index<char> for HuffmanTree {
+    type Output = Vec<u8>;
+
+    fn index(&self, index: char) -> &Self::Output {
+        self.encoding
+            .get(&index)
+            .expect("No encoding exist for this character")
     }
 }
 
@@ -188,5 +219,35 @@ mod tests {
         assert_eq!(encoding[3], ('a', vec![1, 1, 0, 0]));
         assert_eq!(encoding[4], ('b', vec![1, 1, 0, 1]));
         assert_eq!(encoding[5], ('e', vec![1, 1, 1]));
+    }
+
+    #[test]
+    fn testing_indexing() {
+        let mut array = vec![
+            FrequencyChar('a', 5),
+            FrequencyChar('b', 9),
+            FrequencyChar('c', 12),
+            FrequencyChar('d', 13),
+            FrequencyChar('e', 16),
+            FrequencyChar('f', 45),
+        ];
+
+        let tree = HuffmanTree::new(&mut array);
+
+        // let encoding = tree.get_encoding();
+
+        // Should be:
+        // f: 0
+        // c: 100
+        // d: 101
+        // a: 1100
+        // b: 1101
+        // e: 111
+        assert_eq!(tree['f'], vec![0]);
+        assert_eq!(tree['c'], vec![1, 0, 0]);
+        assert_eq!(tree['d'], vec![1, 0, 1]);
+        assert_eq!(tree['a'], vec![1, 1, 0, 0]);
+        assert_eq!(tree['b'], vec![1, 1, 0, 1]);
+        assert_eq!(tree['e'], vec![1, 1, 1]);
     }
 }
