@@ -2,6 +2,8 @@ use std::{
     collections::HashMap,
     fs::{self, File},
     io::Write,
+    mem,
+    path::{Path, PathBuf},
 };
 
 use crate::{
@@ -33,19 +35,30 @@ pub fn load_tree_from_file(file_path: &str) -> HuffmanTree {
         .map(|(c, freq)| FrequencyChar(*c, *freq))
         .collect();
 
-    println!("frequencies: {:?}", frequencies);
     HuffmanTree::new(&mut frequencies)
 }
 
-pub fn compress_file(tree: &HuffmanTree, input_file: &str, output_file: &str) -> usize {
-    let mut output_f = File::create(output_file)
-        .expect("Failed to create file in src/filereader.rs => fn compress_file");
+fn get_huffman_tree_filepath(output_file: &str) -> String {
+    let mut tree_path = PathBuf::from(output_file);
 
+    let parent_dir = tree_path.parent().unwrap_or_else(|| Path::new(""));
+
+    let stem = tree_path
+        .file_stem()
+        .unwrap_or_else(|| std::ffi::OsStr::new("output"));
+
+    let huffman_path = parent_dir.join(format!(".{}.hfmt", stem.to_string_lossy()));
+
+    String::from(huffman_path.to_str().unwrap())
+}
+
+pub fn compress_file(input_file: &str, output_file: &str) {
     let bytes =
         fs::read(input_file).expect("Failed to read file in src/filereader.rs => fn compress_file");
 
-    let mut compressed_buffer = CompressedBuffer::new();
+    let tree = load_tree_from_file(input_file);
 
+    let mut compressed_buffer = CompressedBuffer::new();
     let mut bit_size: usize = 0;
 
     for c in bytes {
@@ -61,6 +74,19 @@ pub fn compress_file(tree: &HuffmanTree, input_file: &str, output_file: &str) ->
         }
     }
 
+    // OUTPUT FILES //
+
+    // inserting size at the beginning
+    println!("bit_size: {}", bit_size);
+    let mut size_in_bytes: [u8; mem::size_of::<usize>()] = bit_size.to_le_bytes();
+    size_in_bytes.reverse();
+    for byte in size_in_bytes {
+        compressed_buffer.insert_byte(0, byte);
+    }
+
+    let mut output_f = File::create(output_file)
+        .expect("Failed to create file in src/filereader.rs => fn compress_file");
+
     output_f
         .write_all(&compressed_buffer.buffer)
         .expect("Failed to write to file in src/filereader.rs => fn compress_file");
@@ -69,11 +95,17 @@ pub fn compress_file(tree: &HuffmanTree, input_file: &str, output_file: &str) ->
         .flush()
         .expect("Failed to flush in src/filereader.rs => fn compress_file");
 
-    return bit_size;
+    // write huffman_tree
+    let tree_path = get_huffman_tree_filepath(output_file);
+    tree.save_as_file(&tree_path);
 }
+
+pub fn uncompress() {}
 
 #[cfg(test)]
 mod tests {
+    use std::mem;
+
     use super::*;
 
     /* NOTE the file test test_uncommpressed_file.txt was generated with:
@@ -87,7 +119,6 @@ mod tests {
 
         let encoding = tree.get_encoding();
 
-        println!("encoding length {}", encoding.len());
         // Should be:
         // f: 0
         // c: 100
@@ -109,10 +140,7 @@ mod tests {
         let input_file = "tests/test_uncompressed_file.txt";
         let output_file = "tests/test_compressed_file.txt";
 
-        // NOTE possible put load_tree_from_file inside compress_file()
-        let tree = load_tree_from_file(input_file.clone());
-
-        let bit_size = compress_file(&tree, input_file, output_file.clone());
+        compress_file(input_file, output_file);
 
         let input_content = fs::read(input_file)
             .expect("Failed to read file in src/filereader.rs => fn load_tree_from_file");
@@ -121,7 +149,19 @@ mod tests {
         let compressed_content = fs::read(output_file)
             .expect("Failed to read file in src/filereader.rs => fn load_tree_from_file");
 
-        let uncompressed_content = tree.decode(&compressed_content, bit_size);
+        // getting size
+        let (size, compressed_content) = compressed_content.split_at(mem::size_of::<usize>());
+
+        // Converting back to usize
+        let mut size_bytes = [0u8; mem::size_of::<usize>()];
+        size_bytes.copy_from_slice(size);
+
+        let size = usize::from_le_bytes(size_bytes);
+
+        let tree_path = get_huffman_tree_filepath(output_file);
+        let tree = HuffmanTree::load_from_file(&tree_path);
+
+        let uncompressed_content = tree.decode(&compressed_content, size);
 
         assert_eq!(input_content, uncompressed_content);
     }

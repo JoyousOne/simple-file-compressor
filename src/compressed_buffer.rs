@@ -51,6 +51,10 @@ impl CompressedBuffer {
             self.current_bit_index - 1
         };
     }
+
+    pub fn insert_byte(&mut self, index: usize, byte: u8) {
+        self.buffer.insert(index, byte);
+    }
 }
 
 impl Index<usize> for CompressedBuffer {

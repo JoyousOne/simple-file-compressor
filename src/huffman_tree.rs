@@ -401,7 +401,6 @@ mod tests {
         //                8 char +  6 char = 14 char
         let encoded: [u8; 2] = [0b0110_0100, 0b1111_0100];
         let decoded = tree.decode(&encoded, 14);
-        println!("DECODED: {}", decoded);
 
         assert_eq!(decoded, String::from("faced"));
     }
