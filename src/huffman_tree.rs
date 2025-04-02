@@ -1,8 +1,8 @@
+use core::panic;
 use std::{
     cmp::Ordering,
     collections::{BinaryHeap, HashMap},
     ops::Index,
-    os::raw::c_ulonglong,
 };
 
 const INTERNAL_NODE_VALUE: char = '\0';
@@ -110,9 +110,9 @@ impl HuffmanTree {
         //     println!("CHAR: {}, FREQ: {}", node.c, node.frequency);
         // }
 
-        while (min_heap.len() > 1) {
-            let mut left = min_heap.pop();
-            let mut right = min_heap.pop();
+        while min_heap.len() > 1 {
+            let left = min_heap.pop();
+            let right = min_heap.pop();
 
             // Sum the new frequency based on the children of the node
             let new_frequency = match (&left, &right) {
@@ -162,6 +162,48 @@ impl HuffmanTree {
         self.root.get_encoding(Vec::new())
     }
 
+    pub fn decode(&self, bytes: &[u8], bit_length: usize) -> String {
+        let mut node = &self.root;
+        let mut decoded = Vec::new();
+        let mut visited_bits = 0;
+
+        for byte in bytes {
+            for i in (0..8).rev() {
+                if visited_bits >= bit_length {
+                    break;
+                }
+
+                let bit = (byte >> i) & 1;
+                // DEBUG
+                // println!("byte: {:#010b}", byte);
+                // println!("byte >> i: {:#010b}", byte >> i);
+                // println!("(byte >> i) & 1: {:#010b}", (byte >> i) & 1);
+                // println!("(byte >> i) & 1: {}", (byte >> i) & 1);
+                // println!("bit: {}", bit);
+                // println!("bit: {:#010b}\n", bit);
+
+                match bit {
+                    0 => node = node.left.as_ref().unwrap(),
+                    1 => node = node.right.as_ref().unwrap(),
+                    _ => {
+                        panic!("Cannot index encoding with a non binary value")
+                    }
+                }
+
+                if node.c != INTERNAL_NODE_VALUE {
+                    // DEBUG
+                    // println!("char: {}", node.c);
+                    decoded.push(node.c as u8);
+                    node = &self.root;
+                }
+
+                visited_bits += 1;
+            }
+        }
+
+        String::from_utf8(decoded).unwrap()
+    }
+
     fn set_encoding(&mut self) {
         let encoding = self.get_encoding();
 
@@ -182,6 +224,26 @@ impl Index<char> for HuffmanTree {
         self.encoding
             .get(&index)
             .expect("No encoding exist for this character")
+    }
+}
+
+impl Index<Vec<u8>> for HuffmanTree {
+    type Output = char;
+
+    fn index(&self, index: Vec<u8>) -> &Self::Output {
+        let mut node = &self.root;
+
+        for bit in index {
+            match bit {
+                0 => node = node.left.as_ref().unwrap(),
+                1 => node = node.right.as_ref().unwrap(),
+                _ => {
+                    panic!("Cannot index encoding with a non binary value")
+                }
+            }
+        }
+
+        &node.c
     }
 }
 
@@ -222,7 +284,7 @@ mod tests {
     }
 
     #[test]
-    fn testing_indexing() {
+    fn testing_indexing_by_char() {
         let mut array = vec![
             FrequencyChar('a', 5),
             FrequencyChar('b', 9),
@@ -249,5 +311,66 @@ mod tests {
         assert_eq!(tree['a'], vec![1, 1, 0, 0]);
         assert_eq!(tree['b'], vec![1, 1, 0, 1]);
         assert_eq!(tree['e'], vec![1, 1, 1]);
+    }
+
+    #[test]
+    fn testing_indexing_by_encoding() {
+        let mut array = vec![
+            FrequencyChar('a', 5),
+            FrequencyChar('b', 9),
+            FrequencyChar('c', 12),
+            FrequencyChar('d', 13),
+            FrequencyChar('e', 16),
+            FrequencyChar('f', 45),
+        ];
+
+        let tree = HuffmanTree::new(&mut array);
+
+        // let encoding = tree.get_encoding();
+
+        // Should be:
+        // f: 0
+        // c: 100
+        // d: 101
+        // a: 1100
+        // b: 1101
+        // e: 111
+        assert_eq!(tree[vec![0]], 'f');
+        assert_eq!(tree[vec![1, 0, 0]], 'c');
+        assert_eq!(tree[vec![1, 0, 1]], 'd');
+        assert_eq!(tree[vec![1, 1, 0, 0]], 'a');
+        assert_eq!(tree[vec![1, 1, 0, 1]], 'b');
+        assert_eq!(tree[vec![1, 1, 1]], 'e');
+    }
+
+    #[test]
+    fn test_decode() {
+        let mut array = vec![
+            FrequencyChar('a', 5),
+            FrequencyChar('b', 9),
+            FrequencyChar('c', 12),
+            FrequencyChar('d', 13),
+            FrequencyChar('e', 16),
+            FrequencyChar('f', 45),
+        ];
+
+        let tree = HuffmanTree::new(&mut array);
+
+        // We wish to encode 'faced'
+        #[cfg_attr(any(), rustfmt::skip)]
+        let encoded: Vec<u8> = vec![
+             /*f*/ 0,
+             /*a*/ 1, 1, 0, 0,
+             /*c*/ 1, 0, 0,
+             /*e*/ 1, 1, 1,
+             /*d*/ 1, 0, 1];
+
+        // Should be: 0b0110_0100 0b1111_01--
+        //                8 char +  6 char = 14 char
+        let encoded: [u8; 2] = [0b0110_0100, 0b1111_0100];
+        let decoded = tree.decode(&encoded, 14);
+        println!("DECODED: {}", decoded);
+
+        assert_eq!(decoded, String::from("faced"));
     }
 }
