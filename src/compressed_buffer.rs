@@ -7,7 +7,7 @@ pub enum Bit {
 
 pub struct CompressedBuffer {
     /// Buffer containing the bytes
-    buffer: Vec<u8>,
+    pub buffer: Vec<u8>,
     // current_byte_index: usize,
     current_bit_index: u8,
 }
@@ -23,7 +23,7 @@ impl CompressedBuffer {
 
     /// set the last bit as a given value
     ///
-    /// Usefull bitwise cheat sheet: https://togglebit.io/posts/rust-bitwise/
+    // Usefull bitwise cheat sheet: https://togglebit.io/posts/rust-bitwise/
     pub fn push_bit(&mut self, bit: Bit) {
         // append new byte
         if self.current_bit_index == 7 {
