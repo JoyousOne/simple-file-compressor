@@ -1,7 +1,10 @@
+use ::bincode::{Decode, Encode};
 use core::panic;
 use std::{
     cmp::Ordering,
     collections::{BinaryHeap, HashMap},
+    fs::File,
+    io::{BufReader, BufWriter},
     ops::Index,
 };
 
@@ -10,7 +13,7 @@ const INTERNAL_NODE_VALUE: char = '\0';
 #[derive(Debug, Eq, PartialEq, PartialOrd)]
 pub struct FrequencyChar(pub char, pub usize);
 
-#[derive(Debug, Eq, PartialEq)]
+#[derive(Debug, Eq, PartialEq, Decode, Encode)]
 struct Node {
     pub frequency: usize,
     pub c: char,
@@ -215,6 +218,35 @@ impl HuffmanTree {
     pub fn print_encoding(&self) {
         self.root.print_encoding(Vec::new());
     }
+
+    pub fn save_as_file(&self, filepath: &str) {
+        let file = File::create(filepath).expect("Failed to create file");
+        let mut writer = BufWriter::new(file);
+
+        // bincode::serialize_into(&mut writer, &self.root).expect("Failed to read JSON");
+        bincode::encode_into_std_write(&self.root, &mut writer, bincode::config::standard())
+            .expect("Failed to write the Huffman Tree to a file");
+    }
+
+    pub fn load_from_file(filepath: &str) -> Self {
+        let file = File::open(filepath).expect("Failed to open file");
+        let mut reader = BufReader::new(file);
+
+        // decoding from the given file
+        let new_root: Node =
+            bincode::decode_from_std_read(&mut reader, bincode::config::standard())
+                .expect("Failed to read JSON");
+        // self.root = new_root;
+
+        let mut tree = HuffmanTree {
+            root: new_root,
+            encoding: HashMap::new(),
+        };
+
+        tree.set_encoding();
+
+        tree
+    }
 }
 
 impl Index<char> for HuffmanTree {
@@ -372,5 +404,39 @@ mod tests {
         println!("DECODED: {}", decoded);
 
         assert_eq!(decoded, String::from("faced"));
+    }
+
+    #[test]
+    fn test_save_n_load_tree() {
+        let mut array = vec![
+            FrequencyChar('a', 5),
+            FrequencyChar('b', 9),
+            FrequencyChar('c', 12),
+            FrequencyChar('d', 13),
+            FrequencyChar('e', 16),
+            FrequencyChar('f', 45),
+        ];
+
+        let original_tree = HuffmanTree::new(&mut array);
+
+        let filename = "tests/test_saved_huffman_tree";
+        original_tree.save_as_file(filename);
+
+        let new_tree = HuffmanTree::load_from_file(filename);
+        // let encoding = tree.get_encoding();
+
+        // Should be:
+        // f: 0
+        // c: 100
+        // d: 101
+        // a: 1100
+        // b: 1101
+        // e: 111
+        assert_eq!(new_tree['f'], vec![0]);
+        assert_eq!(new_tree['c'], vec![1, 0, 0]);
+        assert_eq!(new_tree['d'], vec![1, 0, 1]);
+        assert_eq!(new_tree['a'], vec![1, 1, 0, 0]);
+        assert_eq!(new_tree['b'], vec![1, 1, 0, 1]);
+        assert_eq!(new_tree['e'], vec![1, 1, 1]);
     }
 }
