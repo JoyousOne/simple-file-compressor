@@ -96,7 +96,7 @@ pub fn compress_file(input_file: &str, output_file: &str) -> String {
     }
 
     let output_file = inputname_to_outputname(input_file);
-    println!("compress output_file: {}", &output_file);
+    // println!("compress output_file: {}", &output_file);
     let mut output_f = File::create(&output_file)
         .expect("Failed to create file in src/filereader.rs => fn compress_file");
 

@@ -57,6 +57,6 @@ fn main() {
             _ => uncompress(file, Some(output_file)),
         };
 
-        println!("Succesfully compressed as {}", uncompressed_filename);
+        println!("Succesfully uncompressed as {}", uncompressed_filename);
     }
 }
