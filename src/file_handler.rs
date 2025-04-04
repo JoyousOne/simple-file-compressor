@@ -14,7 +14,9 @@ use crate::{
 pub fn load_tree_from_file(file_path: &str) -> HuffmanTree {
     let mut map: HashMap<char, usize> = HashMap::new();
 
-    println!("FILEPATH: {}", &file_path);
+    // DEBUG
+    // println!("FILEPATH: {}", &file_path);
+
     let bytes = fs::read(file_path)
         .expect("Failed to read file in src/filereader.rs => fn load_tree_from_file");
 
@@ -40,25 +42,16 @@ pub fn load_tree_from_file(file_path: &str) -> HuffmanTree {
 }
 
 fn get_huffman_tree_filepath(output_file: &str) -> String {
-    let mut tree_path = PathBuf::from(output_file);
-
-    let parent_dir = tree_path.parent().unwrap_or_else(|| Path::new(""));
-
-    let base_filename = tree_path.file_name().unwrap();
-
-    let huffman_path = parent_dir.join(format!(".{}.hfmt", base_filename.to_string_lossy()));
-
-    String::from(huffman_path.to_str().unwrap())
+    String::from(format!(".{}.hfmt", output_file))
 }
 
 fn inputname_to_outputname(input_file: &str) -> String {
     let mut tree_path = PathBuf::from(input_file);
 
-    let parent_dir = tree_path.parent().unwrap_or_else(|| Path::new(""));
-
+    let current_dir = Path::new("");
     let base_filename = tree_path.file_name().unwrap();
 
-    let filepath = parent_dir.join(format!("{}.compressed", base_filename.to_string_lossy()));
+    let filepath = current_dir.join(format!("{}.compressed", base_filename.to_string_lossy()));
 
     String::from(filepath.to_str().unwrap())
 }
@@ -69,7 +62,8 @@ fn get_original_filename(filename: &str) -> String {
     String::from(filename)
 }
 
-pub fn compress_file(input_file: &str, output_file: &str) {
+// NOTE output_file not implemented for now
+pub fn compress_file(input_file: &str, output_file: &str) -> String {
     let bytes =
         fs::read(input_file).expect("Failed to read file in src/filereader.rs => fn compress_file");
 
@@ -94,7 +88,7 @@ pub fn compress_file(input_file: &str, output_file: &str) {
     // OUTPUT FILES //
 
     // inserting size at the beginning
-    println!("bit_size: {}", bit_size);
+    // println!("bit_size: {}", bit_size); // DEBUG
     let mut size_in_bytes: [u8; mem::size_of::<usize>()] = bit_size.to_le_bytes();
     size_in_bytes.reverse();
     for byte in size_in_bytes {
@@ -117,9 +111,11 @@ pub fn compress_file(input_file: &str, output_file: &str) {
     // write huffman_tree
     let tree_path = get_huffman_tree_filepath(&output_file);
     tree.save_as_file(&tree_path);
+
+    String::from(output_file)
 }
 
-pub fn uncompress(compressed_filepath: &str, output_file: Option<&str>) {
+pub fn uncompress(compressed_filepath: &str, output_file: Option<&str>) -> String {
     let compressed_content = fs::read(compressed_filepath)
         .expect("Failed to read file in src/filereader.rs => fn uncompress");
 
@@ -154,6 +150,8 @@ pub fn uncompress(compressed_filepath: &str, output_file: Option<&str>) {
     output_f
         .flush()
         .expect("Failed to flush in src/filereader.rs => fn uncompress_file");
+
+    String::from(output_file)
 }
 
 #[cfg(test)]
