@@ -1,10 +1,9 @@
-use ::bincode::{Decode, Encode};
 use core::panic;
 use std::{
     cmp::Ordering,
     collections::{BinaryHeap, HashMap},
-    fs::File,
-    io::{BufReader, BufWriter},
+    fs::{self, File},
+    io::Write,
     ops::Index,
 };
 
@@ -13,29 +12,37 @@ const INTERNAL_NODE_VALUE: char = '\0';
 #[derive(Debug, Eq, PartialEq, PartialOrd)]
 pub struct FrequencyChar(pub char, pub usize);
 
-#[derive(Debug, Eq, PartialEq, Decode, Encode)]
-struct Node {
+#[derive(Debug, Eq, PartialEq)]
+struct HeapNode {
     pub frequency: usize,
+    pub c: char,
+    pub left: Option<Box<HeapNode>>,
+    pub right: Option<Box<HeapNode>>,
+}
+
+#[derive(Debug, Eq, PartialEq)]
+struct Node {
+    // pub frequency: usize,
     pub c: char,
     pub left: Option<Box<Node>>,
     pub right: Option<Box<Node>>,
 }
 
-impl PartialOrd for Node {
+impl PartialOrd for HeapNode {
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
         other.frequency.partial_cmp(&self.frequency)
     }
 }
 
-impl Ord for Node {
+impl Ord for HeapNode {
     fn cmp(&self, other: &Self) -> Ordering {
         other.frequency.cmp(&self.frequency)
     }
 }
 
-impl Node {
+impl HeapNode {
     pub fn new(c: char, frequency: usize) -> Self {
-        Node {
+        HeapNode {
             c,
             frequency,
             left: None,
@@ -43,6 +50,52 @@ impl Node {
         }
     }
 
+    pub fn convert_to_node(&self) -> Node {
+        let mut node = Node::new(self.c);
+
+        if let Some(l) = &self.left {
+            if l.c == INTERNAL_NODE_VALUE {
+                node.left = Some(Box::new(l.convert_to_node()));
+            } else {
+                node.left = Some(Box::new(Node::new(l.c)));
+            }
+        }
+
+        if let Some(r) = &self.right {
+            if r.c == INTERNAL_NODE_VALUE {
+                node.right = Some(Box::new(r.convert_to_node()));
+            } else {
+                node.right = Some(Box::new(Node::new(r.c)));
+            }
+        }
+
+        node
+    }
+}
+
+impl Node {
+    pub fn new(c: char) -> Self {
+        Node {
+            c,
+            left: None,
+            right: None,
+        }
+    }
+
+    pub fn count(&self) -> usize {
+        let mut count = 1;
+
+        if let Some(l) = &self.left {
+            count += l.count();
+        }
+
+        // get right sub encodings
+        if let Some(r) = &self.right {
+            count += r.count();
+        }
+
+        count
+    }
     pub fn get_encoding(&self, encoding: Vec<u8>) -> Vec<(char, Vec<u8>)> {
         if self.c != INTERNAL_NODE_VALUE {
             return vec![(self.c, encoding)];
@@ -92,6 +145,44 @@ impl Node {
             }
         }
     }
+
+    pub fn print_as_tree(&self, prefix: &str, is_left: bool) {
+        print!("{}", prefix);
+
+        if is_left {
+            print!("├──");
+        } else {
+            print!("└──")
+        }
+
+        println!("({})", self.c);
+
+        let new_prefix = if is_left {
+            format!("{}|   ", prefix)
+        } else {
+            format!("{}    ", prefix)
+        };
+
+        if let Some(l) = &self.left {
+            l.print_as_tree(&new_prefix, true);
+        }
+
+        if let Some(r) = &self.right {
+            r.print_as_tree(&new_prefix, false);
+        }
+    }
+
+    pub fn convert_to_vec(&self, values: &mut Vec<char>) {
+        values.push(self.c);
+
+        if let Some(l) = &self.left {
+            l.convert_to_vec(values);
+        }
+
+        if let Some(r) = &self.right {
+            r.convert_to_vec(values);
+        }
+    }
 }
 
 pub struct HuffmanTree {
@@ -104,7 +195,7 @@ impl HuffmanTree {
         let mut min_heap = BinaryHeap::new();
 
         for f in frequencies {
-            min_heap.push(Node::new(f.0, f.1));
+            min_heap.push(HeapNode::new(f.0, f.1));
         }
 
         // DEBUG
@@ -126,7 +217,7 @@ impl HuffmanTree {
             };
 
             // INTERVAL_NODE_VALUE is a special value that distinguied internal node from leaf
-            let mut top = Node::new(INTERNAL_NODE_VALUE, new_frequency);
+            let mut top = HeapNode::new(INTERNAL_NODE_VALUE, new_frequency);
 
             // update left node
             top.left = if let Some(l) = left {
@@ -146,7 +237,7 @@ impl HuffmanTree {
             min_heap.push(top);
         }
 
-        let root = min_heap.pop().unwrap();
+        let root = min_heap.pop().unwrap().convert_to_node();
 
         // DEBUG
         // println!("value: {}, frequency: {}", root.c, root.frequency);
@@ -159,6 +250,10 @@ impl HuffmanTree {
         tree.set_encoding();
 
         tree
+    }
+
+    pub fn len(&self) -> usize {
+        self.root.count()
     }
 
     pub fn get_encoding(&self) -> Vec<(char, Vec<u8>)> {
@@ -219,33 +314,72 @@ impl HuffmanTree {
         self.root.print_encoding(Vec::new());
     }
 
-    pub fn save_as_file(&self, filepath: &str) {
-        let file = File::create(filepath).expect("Failed to create file");
-        let mut writer = BufWriter::new(file);
-
-        // bincode::serialize_into(&mut writer, &self.root).expect("Failed to read JSON");
-        bincode::encode_into_std_write(&self.root, &mut writer, bincode::config::standard())
-            .expect("Failed to write the Huffman Tree to a file");
+    pub fn print_tree(&self) {
+        self.root.print_as_tree("", false);
     }
 
-    pub fn load_from_file(filepath: &str) -> Self {
-        let file = File::open(filepath).expect("Failed to open file");
-        let mut reader = BufReader::new(file);
+    fn convert_to_vec(&self) -> Vec<char> {
+        let mut values: Vec<char> = Vec::new();
+
+        self.root.convert_to_vec(&mut values);
+
+        values
+    }
+
+    pub fn save_as_file(&self, file_path: &str) {
+        // let file = File::create(file_path).expect("Failed to create file");
+        // let mut writer = BufWriter::new(file);
+
+        let tree = self.convert_to_vec();
+        let bytes: Vec<u8> = tree.iter().map(|c| *c as u8).collect();
+
+        // bincode::encode_into_std_write(tree, &mut writer, bincode::config::standard())
+        //     .expect("Failed to write the Huffman Tree to a file");
+
+        let mut output_f = File::create(&file_path)
+            .expect("Failed to create file in src/filereader.rs => fn compress_file");
+
+        // output_f.write_all(&bytes);
+        output_f
+            .write_all(&bytes)
+            .expect("Failed to write to file in src/filereader.rs => fn compress_file");
+
+        output_f
+            .flush()
+            .expect("Failed to flush in src/filereader.rs => fn compress_file");
+        // bincode::encode_into_std_write(&self.root, &mut writer, bincode::config::standard())
+        //     .expect("Failed to write the Huffman Tree to a file");
+    }
+
+    pub fn load_from_file(file_path: &str) -> Self {
+        // let file = File::open(filepath).expect("Failed to open file");
+        // let mut reader = BufReader::new(file);
 
         // decoding from the given file
-        let new_root: Node =
-            bincode::decode_from_std_read(&mut reader, bincode::config::standard())
-                .expect("Failed to read JSON");
+        // let decoded_tree: Vec<char> =
+        //     bincode::decode_from_std_read(&mut reader, bincode::config::standard())
+        //         .expect("Failed to read file");
+        // let new_root: Node =
+        //     bincode::decode_from_std_read(&mut reader, bincode::config::standard())
+        //         .expect("Failed to read file");
         // self.root = new_root;
+        // let root = decoded_tree
 
-        let mut tree = HuffmanTree {
-            root: new_root,
-            encoding: HashMap::new(),
-        };
+        let decoded_tree: Vec<char> = fs::read(file_path)
+            .expect("Failed to read file in src/filereader.rs => fn load_tree_from_file")
+            .iter()
+            .map(|byte| *byte as char)
+            .collect();
 
-        tree.set_encoding();
+        HuffmanTree::from(decoded_tree)
+        // let mut tree = HuffmanTree {
+        //     root: new_root,
+        //     encoding: HashMap::new(),
+        // };
 
-        tree
+        // tree.set_encoding();
+
+        // tree
     }
 }
 
@@ -276,6 +410,46 @@ impl Index<Vec<u8>> for HuffmanTree {
         }
 
         &node.c
+    }
+}
+
+fn node_from_vec(values: &Vec<char>, index: usize) -> Node {
+    let c = values[index];
+
+    let mut left = None;
+    let mut right = None;
+
+    // Last Value
+    if index + 1 == values.len() {
+        return Node::new(values[index]);
+    }
+
+    if values[index] == INTERNAL_NODE_VALUE {
+        left = Some(Box::new(node_from_vec(values, index + 1)));
+
+        // We know that the next right value is after all the values of the left
+        // node so we just need to skip them
+        let count = left.as_ref().unwrap().count();
+        right = Some(Box::new(node_from_vec(values, index + 1 + count)));
+    }
+
+    let mut node = Node::new(c);
+    node.left = left;
+    node.right = right;
+
+    node
+}
+
+impl From<Vec<char>> for HuffmanTree {
+    fn from(value: Vec<char>) -> Self {
+        let mut tree = HuffmanTree {
+            root: node_from_vec(&value, 0),
+            encoding: HashMap::new(),
+        };
+
+        tree.set_encoding();
+
+        tree
     }
 }
 
@@ -327,8 +501,6 @@ mod tests {
         ];
 
         let tree = HuffmanTree::new(&mut array);
-
-        // let encoding = tree.get_encoding();
 
         // Should be:
         // f: 0
@@ -390,12 +562,12 @@ mod tests {
 
         // We wish to encode 'faced'
         #[cfg_attr(any(), rustfmt::skip)]
-        let encoded: Vec<u8> = vec![
-             /*f*/ 0,
-             /*a*/ 1, 1, 0, 0,
-             /*c*/ 1, 0, 0,
-             /*e*/ 1, 1, 1,
-             /*d*/ 1, 0, 1];
+        // let encoded: Vec<u8> = vec![
+        //      /*f*/ 0,
+        //      /*a*/ 1, 1, 0, 0,
+        //      /*c*/ 1, 0, 0,
+        //      /*e*/ 1, 1, 1,
+        //      /*d*/ 1, 0, 1];
 
         // Should be: 0b0110_0100 0b1111_01--
         //                8 char +  6 char = 14 char
@@ -423,6 +595,77 @@ mod tests {
 
         let new_tree = HuffmanTree::load_from_file(filename);
         // let encoding = tree.get_encoding();
+
+        // Should be:
+        // f: 0
+        // c: 100
+        // d: 101
+        // a: 1100
+        // b: 1101
+        // e: 111
+        assert_eq!(new_tree['f'], vec![0]);
+        assert_eq!(new_tree['c'], vec![1, 0, 0]);
+        assert_eq!(new_tree['d'], vec![1, 0, 1]);
+        assert_eq!(new_tree['a'], vec![1, 1, 0, 0]);
+        assert_eq!(new_tree['b'], vec![1, 1, 0, 1]);
+        assert_eq!(new_tree['e'], vec![1, 1, 1]);
+    }
+
+    #[test]
+    fn tree_len() {
+        let mut array = vec![
+            FrequencyChar('a', 5),
+            FrequencyChar('b', 9),
+            FrequencyChar('c', 12),
+            FrequencyChar('d', 13),
+            FrequencyChar('e', 16),
+            FrequencyChar('f', 45),
+        ];
+
+        let tree = HuffmanTree::new(&mut array);
+
+        let len = tree.len();
+
+        assert_eq!(11, len);
+    }
+
+    #[test]
+    fn converting_tree_to_array() {
+        // let mut array = vec![
+        //     FrequencyChar('a', 5),
+        //     FrequencyChar('b', 9),
+        //     FrequencyChar('c', 12),
+        //     FrequencyChar('d', 13),
+        //     FrequencyChar('e', 16),
+        //     FrequencyChar('f', 45),
+        //     FrequencyChar('g', 46),
+        //     FrequencyChar('h', 47),
+        //     FrequencyChar('i', 48),
+        //     FrequencyChar('j', 49),
+        //     FrequencyChar('k', 50),
+        //     FrequencyChar('l', 51),
+        // ];
+        let mut array = vec![
+            FrequencyChar('a', 5),
+            FrequencyChar('b', 9),
+            FrequencyChar('c', 12),
+            FrequencyChar('d', 13),
+            FrequencyChar('e', 16),
+            FrequencyChar('f', 45),
+        ];
+
+        let tree = HuffmanTree::new(&mut array);
+
+        // DEBUG
+        // tree.print_tree();
+
+        let values = tree.convert_to_vec();
+        println!("values: {:?}", values);
+
+        let new_tree: HuffmanTree = HuffmanTree::from(values);
+
+        // DEBUG
+        // new_tree.print_tree();
 
         // Should be:
         // f: 0
