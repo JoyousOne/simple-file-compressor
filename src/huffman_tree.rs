@@ -327,59 +327,29 @@ impl HuffmanTree {
     }
 
     pub fn save_as_file(&self, file_path: &str) {
-        // let file = File::create(file_path).expect("Failed to create file");
-        // let mut writer = BufWriter::new(file);
-
         let tree = self.convert_to_vec();
         let bytes: Vec<u8> = tree.iter().map(|c| *c as u8).collect();
 
-        // bincode::encode_into_std_write(tree, &mut writer, bincode::config::standard())
-        //     .expect("Failed to write the Huffman Tree to a file");
-
         let mut output_f = File::create(&file_path)
-            .expect("Failed to create file in src/filereader.rs => fn compress_file");
+            .expect("Failed to create file in src/huffman_tree.rs => fn save_as_file");
 
-        // output_f.write_all(&bytes);
         output_f
             .write_all(&bytes)
-            .expect("Failed to write to file in src/filereader.rs => fn compress_file");
+            .expect("Failed to write to file in src/huffman_tree.rs => fn save_as_file");
 
         output_f
             .flush()
-            .expect("Failed to flush in src/filereader.rs => fn compress_file");
-        // bincode::encode_into_std_write(&self.root, &mut writer, bincode::config::standard())
-        //     .expect("Failed to write the Huffman Tree to a file");
+            .expect("Failed to flush in src/huffman_tree.rs => fn save_as_file");
     }
 
     pub fn load_from_file(file_path: &str) -> Self {
-        // let file = File::open(filepath).expect("Failed to open file");
-        // let mut reader = BufReader::new(file);
-
-        // decoding from the given file
-        // let decoded_tree: Vec<char> =
-        //     bincode::decode_from_std_read(&mut reader, bincode::config::standard())
-        //         .expect("Failed to read file");
-        // let new_root: Node =
-        //     bincode::decode_from_std_read(&mut reader, bincode::config::standard())
-        //         .expect("Failed to read file");
-        // self.root = new_root;
-        // let root = decoded_tree
-
         let decoded_tree: Vec<char> = fs::read(file_path)
-            .expect("Failed to read file in src/filereader.rs => fn load_tree_from_file")
+            .expect("Failed to read file in src/huffman_tree.rs => fn load_from_file")
             .iter()
             .map(|byte| *byte as char)
             .collect();
 
         HuffmanTree::from(decoded_tree)
-        // let mut tree = HuffmanTree {
-        //     root: new_root,
-        //     encoding: HashMap::new(),
-        // };
-
-        // tree.set_encoding();
-
-        // tree
     }
 }
 
