@@ -256,6 +256,12 @@ impl HuffmanTree {
         self.root.count()
     }
 
+    pub fn as_bytes(&self) -> Vec<u8> {
+        let bytes: Vec<u8> = self.convert_to_vec().iter().map(|&c| c as u8).collect();
+
+        bytes
+    }
+
     pub fn get_encoding(&self) -> Vec<(char, Vec<u8>)> {
         self.root.get_encoding(Vec::new())
     }
@@ -318,7 +324,7 @@ impl HuffmanTree {
         self.root.print_as_tree("", false);
     }
 
-    fn convert_to_vec(&self) -> Vec<char> {
+    pub fn convert_to_vec(&self) -> Vec<char> {
         let mut values: Vec<char> = Vec::new();
 
         self.root.convert_to_vec(&mut values);

@@ -16,7 +16,6 @@ impl CompressedBuffer {
     pub fn new() -> Self {
         CompressedBuffer {
             buffer: Vec::new(),
-            // current_byte_index: 0,
             current_bit_index: 7,
         }
     }
@@ -50,6 +49,12 @@ impl CompressedBuffer {
         } else {
             self.current_bit_index - 1
         };
+    }
+
+    pub fn push_byte(&mut self, byte: u8) {
+        self.buffer.push(byte);
+
+        self.current_bit_index = 7;
     }
 
     pub fn insert_byte(&mut self, index: usize, byte: u8) {
