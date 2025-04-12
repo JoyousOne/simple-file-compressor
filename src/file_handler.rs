@@ -66,9 +66,9 @@ pub fn load_tree_from_bytes(bytes: &[u8]) -> HuffmanTree {
 //     HuffmanTree::new(&mut frequencies)
 // }
 
-fn get_huffman_tree_filepath(output_file: &str) -> String {
-    String::from(format!(".{}.hfmt", output_file))
-}
+// fn get_huffman_tree_filepath(output_file: &str) -> String {
+//     String::from(format!(".{}.hfmt", output_file))
+// }
 
 fn inputname_to_outputname(input_file: &str) -> String {
     let tree_path = PathBuf::from(input_file);
@@ -88,7 +88,7 @@ fn get_original_filename(filename: &str) -> String {
 }
 
 // NOTE output_file not implemented for now
-pub fn compress_file(input_file: &str, output_file: &str) -> String {
+pub fn compress_file(input_file: &str, output_file: Option<&str>) -> String {
     let bytes =
         fs::read(input_file).expect("Failed to read file in src/filereader.rs => fn compress_file");
 
@@ -103,7 +103,6 @@ pub fn compress_file(input_file: &str, output_file: &str) -> String {
     // add tree in the buffer
     let tree_to_byte = tree.as_bytes();
     for byte in tree_to_byte {
-        println!("byte {}", byte);
         compressed_buffer.push_byte(byte);
     }
 
@@ -121,8 +120,6 @@ pub fn compress_file(input_file: &str, output_file: &str) -> String {
         }
     }
 
-    // OUTPUT FILES //
-
     // inserting size at the beginning
     // println!("bit_size: {}", bit_size); // DEBUG
     let mut size_in_bytes: [u8; mem::size_of::<usize>()] = bit_size.to_le_bytes();
@@ -131,7 +128,12 @@ pub fn compress_file(input_file: &str, output_file: &str) -> String {
         compressed_buffer.insert_byte((tree_size + 1) as usize, byte);
     }
 
-    let output_file = inputname_to_outputname(input_file);
+    // OUTPUT FILES //
+    // let output_file = inputname_to_outputname(input_file);
+    let output_file = match output_file {
+        Some(filename) => filename,
+        None => &inputname_to_outputname(input_file),
+    };
 
     let mut output_f = File::create(&output_file)
         .expect("Failed to create file in src/filereader.rs => fn compress_file");
@@ -145,8 +147,8 @@ pub fn compress_file(input_file: &str, output_file: &str) -> String {
         .expect("Failed to flush in src/filereader.rs => fn compress_file");
 
     // write huffman_tree
-    let tree_path = get_huffman_tree_filepath(&output_file);
-    tree.save_as_file(&tree_path);
+    // let tree_path = get_huffman_tree_filepath(&output_file);
+    // tree.save_as_file(&tree_path);
 
     String::from(output_file)
 }
@@ -233,7 +235,7 @@ mod tests {
         let input_file = "tests/test_uncompressed_file.txt";
         let output_file = "tests/test_compressed_file";
 
-        compress_file(input_file, output_file);
+        compress_file(input_file, Some(output_file));
 
         let input_content =
             fs::read(input_file).expect("Failed to read file in src/filereader.rs => in test");

@@ -10,7 +10,7 @@ mod huffman_tree;
 // http://docopt.org/
 const USAGE: &'static str = "
 Usage:
-    simple-file-compressor (--compress | -c) <file>
+    simple-file-compressor (--compress | -c) <file> [<output_file>]
     simple-file-compressor (--uncompress | -u) <file> [<output_file>]
     simple-file-compressor (--help | -h)
 
@@ -35,9 +35,16 @@ fn main() {
     let compressing = args.get_bool("--compress");
     let uncompressing = args.get_bool("--uncompress");
 
+    // let output_file = match output
+    let output_file_arg = args.get_str("<output_file>");
+    let output_file = match output_file_arg {
+        "" => None,
+        filename => Some(filename),
+    };
+
     if compressing {
         // compress file
-        let compressed_filename = compress_file(file, "");
+        let compressed_filename = compress_file(file, output_file);
 
         println!("Succesfully compressed as {}", compressed_filename);
     }
@@ -51,12 +58,7 @@ fn main() {
         }
 
         // uncompress file
-        let output_file = args.get_str("<output_file>");
-        let uncompressed_filename = match output_file {
-            "" => uncompress(file, None),
-            _ => uncompress(file, Some(output_file)),
-        };
-
+        let uncompressed_filename = uncompress(file, output_file);
         println!("Succesfully uncompressed as {}", uncompressed_filename);
     }
 }
