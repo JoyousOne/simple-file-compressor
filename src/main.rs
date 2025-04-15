@@ -6,6 +6,7 @@ use file_handler::{compress_file, uncompress};
 mod compressed_buffer;
 mod file_handler;
 mod huffman_tree;
+mod lzw_encoder;
 
 // http://docopt.org/
 const USAGE: &'static str = "
