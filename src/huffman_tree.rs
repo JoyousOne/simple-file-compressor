@@ -8,6 +8,7 @@ use std::{
 };
 
 const INTERNAL_NODE_VALUE: char = '\0';
+// const INTERNAL_NODE_VALUE: char = '\u{1}';
 
 #[derive(Debug, Eq, PartialEq, PartialOrd)]
 pub struct FrequencyChar(pub char, pub usize);
@@ -250,6 +251,30 @@ impl HuffmanTree {
         tree.set_encoding();
 
         tree
+    }
+
+    pub fn load_tree_from_bytes(bytes: &[u8]) -> HuffmanTree {
+        let mut map: HashMap<char, usize> = HashMap::new();
+
+        for &c in bytes {
+            let entry = map.get_mut(&(c as char));
+
+            match entry {
+                Some(value) => {
+                    *value += 1;
+                }
+                None => {
+                    map.insert(c as char, 1);
+                }
+            }
+        }
+
+        let mut frequencies: Vec<FrequencyChar> = map
+            .iter()
+            .map(|(c, freq)| FrequencyChar(*c, *freq))
+            .collect();
+
+        HuffmanTree::new(&mut frequencies)
     }
 
     pub fn len(&self) -> usize {

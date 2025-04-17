@@ -7,10 +7,12 @@ use std::{
 };
 
 use crate::{
-    compressed_buffer::{Bit, CompressedBuffer},
+    compressed_buffer::{self, Bit, CompressedBuffer},
     huffman_tree::{FrequencyChar, HuffmanTree},
+    varsize::{encode_varsize, get_first_decoded},
 };
 
+// NOTE MOVED IN HUFFMAN_TREE
 pub fn load_tree_from_bytes(bytes: &[u8]) -> HuffmanTree {
     let mut map: HashMap<char, usize> = HashMap::new();
 
@@ -97,6 +99,7 @@ pub fn compress_file(input_file: &str, output_file: Option<&str>) -> String {
     let mut compressed_buffer = CompressedBuffer::new();
 
     // add tree size at the beginning of the buffer
+    // FIXME tree size could (in theory) surpass 255
     let tree_size = tree.len() as u8;
     compressed_buffer.push_byte(tree_size);
 
@@ -122,8 +125,10 @@ pub fn compress_file(input_file: &str, output_file: Option<&str>) -> String {
 
     // inserting size at the beginning
     // println!("bit_size: {}", bit_size); // DEBUG
-    let mut size_in_bytes: [u8; mem::size_of::<usize>()] = bit_size.to_le_bytes();
+
+    let mut size_in_bytes = encode_varsize(bit_size);
     size_in_bytes.reverse();
+
     for byte in size_in_bytes {
         compressed_buffer.insert_byte((tree_size + 1) as usize, byte);
     }
@@ -167,12 +172,12 @@ pub fn uncompress(compressed_filepath: &str, output_file: Option<&str>) -> Strin
     let tree = HuffmanTree::from(encoded_tree);
 
     // converting compressed_data to data
-    let (size, compressed_data) = compressed_data.split_at(mem::size_of::<usize>());
+    // let (size, compressed_data) = compressed_data.split_at(mem::size_of::<usize>());
 
-    // Converting back to usize
-    let mut size_bytes = [0u8; mem::size_of::<usize>()];
-    size_bytes.copy_from_slice(size);
-    let size = usize::from_le_bytes(size_bytes);
+    // NOTE THE GOOD METHOD
+    // getting compressed_data size
+    let (size, size_last_byte_index) = get_first_decoded(compressed_data);
+    let compressed_data = &compressed_data[size_last_byte_index..];
 
     let uncompressed_content = tree.decode(&compressed_data, size);
 
@@ -233,9 +238,10 @@ mod tests {
     #[test]
     fn test_compress_n_uncompress() {
         let input_file = "tests/test_uncompressed_file.txt";
-        let output_file = "tests/test_compressed_file";
+        // let output_file = "tests/test_compressed_file.txt.compressed";
 
-        compress_file(input_file, Some(output_file));
+        // compress_file(input_file, Some(output_file));
+        compress_file(input_file, None);
 
         let input_content =
             fs::read(input_file).expect("Failed to read file in src/filereader.rs => in test");
@@ -248,6 +254,9 @@ mod tests {
         let output_content =
             fs::read(&restored_file).expect("Failed to read file in src/filereader.rs => in test");
         let output_content = String::from_utf8(output_content).unwrap();
+
+        println!("input_content: {}", input_content);
+        println!("output_content: {}", output_content);
 
         assert_eq!(input_content, output_content);
     }
