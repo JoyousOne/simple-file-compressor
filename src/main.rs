@@ -7,6 +7,7 @@ mod compressed_buffer;
 mod file_handler;
 mod huffman_tree;
 mod lzw_encoder;
+mod varsize;
 
 // http://docopt.org/
 const USAGE: &'static str = "
