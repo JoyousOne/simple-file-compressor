@@ -7,6 +7,8 @@ use std::{
     ops::Index,
 };
 
+use crate::compressed_buffer::Bit;
+
 const LEAF_NULL_CHAR: char = '\0';
 const INTERNAL_NODE_VALUE: char = '\0';
 
@@ -97,16 +99,16 @@ impl Node {
 
         count
     }
-    pub fn get_encoding(&self, encoding: Vec<u8>) -> Vec<(char, Vec<u8>)> {
+    pub fn get_encoding(&self, encoding: Vec<Bit>) -> Vec<(char, Vec<Bit>)> {
         if let Some(c) = self.c {
             return vec![(c, encoding)];
         } else {
-            let mut sub_encodings: Vec<(char, Vec<u8>)> = Vec::new();
+            let mut sub_encodings: Vec<(char, Vec<Bit>)> = Vec::new();
 
             // get left sub encodings
             if let Some(l) = &self.left {
                 let mut new_encoding = encoding.clone();
-                new_encoding.push(0);
+                new_encoding.push(Bit::ZERO);
                 let mut left_sub_encodings = l.get_encoding(new_encoding);
                 sub_encodings.append(&mut left_sub_encodings);
             }
@@ -114,7 +116,7 @@ impl Node {
             // get right sub encodings
             if let Some(r) = &self.right {
                 let mut new_encoding = encoding.clone();
-                new_encoding.push(1);
+                new_encoding.push(Bit::ONE);
                 let mut right_sub_encodings = r.get_encoding(new_encoding);
                 sub_encodings.append(&mut right_sub_encodings);
             }
@@ -178,7 +180,6 @@ impl Node {
         }
     }
 
-    // WARNING FIXME IS PROBABLY ASS
     pub fn convert_to_vec(&self, values: &mut Vec<char>) {
         // values.push(self.c);
         match self.c {
@@ -204,7 +205,8 @@ impl Node {
 
 pub struct HuffmanTree {
     root: Node,
-    encoding: HashMap<char, Vec<u8>>,
+    // encoding: HashMap<char, Vec<u8>>,
+    encoding: HashMap<char, Vec<Bit>>,
 }
 
 impl HuffmanTree {
@@ -303,11 +305,20 @@ impl HuffmanTree {
         bytes
     }
 
-    pub fn get_encoding(&self) -> Vec<(char, Vec<u8>)> {
+    pub fn get_encoding(&self) -> Vec<(char, Vec<Bit>)> {
         self.root.get_encoding(Vec::new())
     }
 
-    // TODO add encode here (take the code from file_handler.rs)
+    pub fn encode(&self, bytes: &[u8]) -> Vec<Bit> {
+        let mut bits = Vec::new();
+
+        for &byte in bytes {
+            let mut new_bits = self[byte as char].clone();
+            bits.append(&mut new_bits);
+        }
+
+        bits
+    }
 
     pub fn decode(&self, bytes: &[u8], bit_length: usize) -> String {
         let mut node = &self.root;
@@ -404,7 +415,7 @@ impl HuffmanTree {
 }
 
 impl Index<char> for HuffmanTree {
-    type Output = Vec<u8>;
+    type Output = Vec<Bit>;
 
     fn index(&self, index: char) -> &Self::Output {
         self.encoding
@@ -493,6 +504,8 @@ impl From<Vec<char>> for HuffmanTree {
 
 #[cfg(test)]
 mod tests {
+    use crate::bitvec;
+
     use super::*;
 
     // Big shout out to geeksforgeeks
@@ -519,12 +532,13 @@ mod tests {
         // a: 1100
         // b: 1101
         // e: 111
-        assert_eq!(encoding[0], ('f', vec![0]));
-        assert_eq!(encoding[1], ('c', vec![1, 0, 0]));
-        assert_eq!(encoding[2], ('d', vec![1, 0, 1]));
-        assert_eq!(encoding[3], ('a', vec![1, 1, 0, 0]));
-        assert_eq!(encoding[4], ('b', vec![1, 1, 0, 1]));
-        assert_eq!(encoding[5], ('e', vec![1, 1, 1]));
+        // bitvec!['a'];
+        assert_eq!(encoding[0], ('f', bitvec![0]));
+        assert_eq!(encoding[1], ('c', bitvec![1, 0, 0]));
+        assert_eq!(encoding[2], ('d', bitvec![1, 0, 1]));
+        assert_eq!(encoding[3], ('a', bitvec![1, 1, 0, 0]));
+        assert_eq!(encoding[4], ('b', bitvec![1, 1, 0, 1]));
+        assert_eq!(encoding[5], ('e', bitvec![1, 1, 1]));
     }
 
     #[test]
@@ -547,12 +561,12 @@ mod tests {
         // a: 1100
         // b: 1101
         // e: 111
-        assert_eq!(tree['f'], vec![0]);
-        assert_eq!(tree['c'], vec![1, 0, 0]);
-        assert_eq!(tree['d'], vec![1, 0, 1]);
-        assert_eq!(tree['a'], vec![1, 1, 0, 0]);
-        assert_eq!(tree['b'], vec![1, 1, 0, 1]);
-        assert_eq!(tree['e'], vec![1, 1, 1]);
+        assert_eq!(tree['f'], bitvec![0]);
+        assert_eq!(tree['c'], bitvec![1, 0, 0]);
+        assert_eq!(tree['d'], bitvec![1, 0, 1]);
+        assert_eq!(tree['a'], bitvec![1, 1, 0, 0]);
+        assert_eq!(tree['b'], bitvec![1, 1, 0, 1]);
+        assert_eq!(tree['e'], bitvec![1, 1, 1]);
     }
 
     #[test]
@@ -641,12 +655,12 @@ mod tests {
         // a: 1100
         // b: 1101
         // e: 111
-        assert_eq!(new_tree['f'], vec![0]);
-        assert_eq!(new_tree['c'], vec![1, 0, 0]);
-        assert_eq!(new_tree['d'], vec![1, 0, 1]);
-        assert_eq!(new_tree['a'], vec![1, 1, 0, 0]);
-        assert_eq!(new_tree['b'], vec![1, 1, 0, 1]);
-        assert_eq!(new_tree['e'], vec![1, 1, 1]);
+        assert_eq!(new_tree['f'], bitvec![0]);
+        assert_eq!(new_tree['c'], bitvec![1, 0, 0]);
+        assert_eq!(new_tree['d'], bitvec![1, 0, 1]);
+        assert_eq!(new_tree['a'], bitvec![1, 1, 0, 0]);
+        assert_eq!(new_tree['b'], bitvec![1, 1, 0, 1]);
+        assert_eq!(new_tree['e'], bitvec![1, 1, 1]);
     }
 
     #[test]
@@ -711,11 +725,11 @@ mod tests {
         // a: 1100
         // b: 1101
         // e: 111
-        assert_eq!(new_tree['f'], vec![0]);
-        // assert_eq!(new_tree['c'], vec![1, 0, 0]);
-        // assert_eq!(new_tree['d'], vec![1, 0, 1]);
-        // assert_eq!(new_tree['a'], vec![1, 1, 0, 0]);
-        // assert_eq!(new_tree['b'], vec![1, 1, 0, 1]);
-        // assert_eq!(new_tree['e'], vec![1, 1, 1]);
+        assert_eq!(new_tree['f'], bitvec![0]);
+        assert_eq!(new_tree['c'], bitvec![1, 0, 0]);
+        assert_eq!(new_tree['d'], bitvec![1, 0, 1]);
+        assert_eq!(new_tree['a'], bitvec![1, 1, 0, 0]);
+        assert_eq!(new_tree['b'], bitvec![1, 1, 0, 1]);
+        assert_eq!(new_tree['e'], bitvec![1, 1, 1]);
     }
 }

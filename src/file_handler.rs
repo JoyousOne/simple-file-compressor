@@ -109,23 +109,14 @@ pub fn compress_file(input_file: &str, output_file: Option<&str>) -> String {
         compressed_buffer.push_byte(byte);
     }
 
-    let mut bit_size: usize = 0;
-    for c in bytes {
-        let bits = &tree[c as char];
+    // let mut bit_size: usize = 0;
+    let bits = tree.encode(&bytes);
+    let bit_size = bits.len();
 
-        for bit in bits {
-            match bit {
-                0 => compressed_buffer.push_bit(Bit::ZERO),
-                1 => compressed_buffer.push_bit(Bit::ONE),
-                _ => panic!("should not be possible"),
-            }
-            bit_size += 1;
-        }
-    }
+    bits.iter().for_each(|&bit| compressed_buffer.push_bit(bit));
 
     // inserting size at the beginning
     // println!("bit_size: {}", bit_size); // DEBUG
-
     let mut size_in_bytes = encode_varsize(bit_size);
     size_in_bytes.reverse();
 

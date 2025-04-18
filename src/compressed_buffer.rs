@@ -1,8 +1,27 @@
 use std::ops::Index;
 
+#[derive(Clone, Copy, Debug, PartialEq)]
 pub enum Bit {
     ZERO,
     ONE,
+}
+
+#[macro_export]
+macro_rules! bitvec {
+    ( $( $x:expr ),* $(,)? ) => {
+        {
+            let mut temp_vec = Vec::new();
+            $(
+                let bit = match $x {
+                    0 => Bit::ZERO,
+                    1 => Bit::ONE,
+                    _ => self::panic!("Invalid bit: {}", $x),
+                };
+                temp_vec.push(bit);
+            )*
+            temp_vec
+        }
+    };
 }
 
 pub struct CompressedBuffer {
