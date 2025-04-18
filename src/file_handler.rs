@@ -181,10 +181,8 @@ pub fn uncompress(compressed_filepath: &str, output_file: Option<&str>) -> Strin
     let mut output_f = File::create(output_file)
         .expect("Failed to create file in src/filereader.rs => fn uncompress_file");
 
-    let uncompressed_bytes = uncompressed_content.into_bytes();
-    // let uncompressed_bytes = uncompressed_content.as_mut_vec();
     output_f
-        .write_all(&uncompressed_bytes)
+        .write_all(&uncompressed_content)
         .expect("Failed to write to file in src/filereader.rs => fn uncompress_file");
 
     output_f

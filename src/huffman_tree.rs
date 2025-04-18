@@ -320,7 +320,7 @@ impl HuffmanTree {
         bits
     }
 
-    pub fn decode(&self, bytes: &[u8], bit_length: usize) -> String {
+    pub fn decode(&self, bytes: &[u8], bit_length: usize) -> Vec<u8> {
         let mut node = &self.root;
         let mut decoded = Vec::new();
         let mut visited_bits = 0;
@@ -348,7 +348,6 @@ impl HuffmanTree {
                     }
                 }
 
-                // if node.c != INTERNAL_NODE_VALUE {
                 if let Some(c) = node.c {
                     // DEBUG
                     // println!("char: {}", node.c);
@@ -360,7 +359,7 @@ impl HuffmanTree {
             }
         }
 
-        String::from_utf8(decoded).unwrap()
+        decoded
     }
 
     fn set_encoding(&mut self) {
@@ -626,7 +625,8 @@ mod tests {
         let encoded: [u8; 2] = [0b0110_0100, 0b1111_0100];
         let decoded = tree.decode(&encoded, 14);
 
-        assert_eq!(decoded, String::from("faced"));
+        let text: Vec<u8> = "faced".bytes().collect();
+        assert_eq!(text, decoded);
     }
 
     #[test]
