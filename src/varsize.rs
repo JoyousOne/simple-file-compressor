@@ -37,6 +37,10 @@ pub fn encode_varsize(n: usize) -> Vec<u8> {
     let mut n = n;
     let mut bytes = Vec::new();
 
+    if n == 0 {
+        return vec![0];
+    }
+
     while n > 0 {
         let byte = (n & 0x7F) as u8 | 0x80;
 
@@ -72,7 +76,7 @@ pub fn encode_varsize(n: usize) -> Vec<u8> {
 /// assert_eq!(vec![99999], decoded);
 ///
 /// ```
-pub fn decode_varsize(encoded: Vec<u8>) -> Vec<usize> {
+pub fn decode_varsize(encoded: &[u8]) -> Vec<usize> {
     let mut decoded = Vec::new();
     let mut i: usize = 0;
 
@@ -151,23 +155,23 @@ mod tests {
     #[test]
     fn test_decode_variable_width_code() {
         let n = vec![0x01];
-        let decoded = decode_varsize(n);
+        let decoded = decode_varsize(&n);
         assert_eq!(vec![1], decoded);
 
         let n = vec![0x84, 0x00];
-        let decoded = decode_varsize(n);
+        let decoded = decode_varsize(&n);
         assert_eq!(vec![512], decoded);
 
         // 1024           => 0x04 0x00
         // 1024 (encoded) => 0x82 0x83 0x00
         let n = vec![0x88, 0x00];
-        let decoded = decode_varsize(n);
+        let decoded = decode_varsize(&n);
         assert_eq!(vec![1024], decoded);
 
         // 99999 =>           0x01 0x86 0x9F
         // 99999 (encoded) => 0x86 0x8D 0x0F
         let n = vec![0x86, 0x8D, 0x1F];
-        let decoded = decode_varsize(n);
+        let decoded = decode_varsize(&n);
         assert_eq!(vec![99999], decoded);
     }
 }
