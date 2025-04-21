@@ -6,6 +6,8 @@ A simple file compressor implemented written in rust, using Huffman coding.
 
 - [Installation](#installation)
 - [Usage](#usage)
+- [How does it word](#how-does-it-work)
+- [TODO](#todo)
 
 ## Installation
 
@@ -42,3 +44,16 @@ Succesfully uncompressed as restored.txt
 ➜ diff regular_file.txt restored.txt
 # No output indicating that the files are the same
 ```
+
+## How does it work
+
+### Lempel–Ziv–Welch
+
+> NOTE: Will convert pdf to gif soon
+![lzw-slides](assets/demo_lzw.pdf)
+
+## TODO
+
+- Add option to combine algorithm like one would like
+- Burrows-Wheeler Transform
+- Possibly add option for Dynamic Markov Compression
