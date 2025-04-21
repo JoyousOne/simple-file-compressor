@@ -39,6 +39,10 @@ impl CompressedBuffer {
         }
     }
 
+    pub fn get_buffer(&self) -> Vec<u8> {
+        self.buffer.clone()
+    }
+
     /// set the last bit as a given value
     ///
     // Usefull bitwise cheat sheet: https://togglebit.io/posts/rust-bitwise/

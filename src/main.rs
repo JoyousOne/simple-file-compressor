@@ -1,12 +1,13 @@
 use core::panic;
 
 use docopt::Docopt;
-use file_handler::{compress_file, uncompress};
+use file_handler::{compress, uncompress};
 
 mod compressed_buffer;
 mod file_handler;
 mod huffman_tree;
 mod lzw_encoder;
+mod utils;
 mod varsize;
 
 // http://docopt.org/
@@ -46,7 +47,7 @@ fn main() {
 
     if compressing {
         // compress file
-        let compressed_filename = compress_file(file, output_file);
+        let compressed_filename = compress(file, output_file);
 
         println!("Succesfully compressed as {}", compressed_filename);
     }

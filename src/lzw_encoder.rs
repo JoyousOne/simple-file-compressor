@@ -1,7 +1,8 @@
 pub mod LZWEncoder {
+    use core::num;
     use std::collections::HashMap;
 
-    use crate::varsize::{decode_varsize, encode_varsize};
+    use crate::varsize::{decode_varsize, encode_varsize, get_first_decoded};
 
     fn insert(
         // &self,
@@ -88,14 +89,14 @@ pub mod LZWEncoder {
 
     /// Decode previously encoded data
     /// -
-    pub fn decode(single_chars: Vec<u8>, input: &[u8]) -> Vec<u8> {
+    pub fn decode(single_chars: &[u8], input: &[u8]) -> Vec<u8> {
         let mut codewords: HashMap<Vec<u8>, usize> = HashMap::new();
 
         let mut encoding: Vec<Vec<u8>> = Vec::new();
         let input = decode_varsize(input);
 
         // add unique char to dict
-        for c in single_chars {
+        for &c in single_chars {
             let codeword = vec![c];
             insert(codeword, &mut codewords, &mut encoding);
         }
@@ -141,14 +142,42 @@ pub mod LZWEncoder {
 
         decoded
     }
+
+    /// return the encoding preceded by the unique chars and the number of unique chars.
+    ///
+    /// ## Example:
+    ///
+    /// It would be represented as follow:
+    /// [num_unique_chars][chars][encoded data]
+    /// [3][A, B, C][0, 0, 1, 4, 2, 2, 6]
+    pub fn encode_with_metadata(input: &[u8]) -> Vec<u8> {
+        let (unique_chars, encoded) = encode(input);
+        let num_chars = encode_varsize(unique_chars.len());
+
+        let mut new_encoded =
+            Vec::with_capacity(num_chars.len() + unique_chars.len() + encoded.len());
+        new_encoded.extend_from_slice(&num_chars);
+        new_encoded.extend_from_slice(&unique_chars);
+        new_encoded.extend_from_slice(&encoded);
+
+        new_encoded
+    }
+
+    /// from an encoded input with metadatas return decoded bytes
+    pub fn decode_with_metadata(input: &[u8]) -> Vec<u8> {
+        let (num_chars, new_first_index) = get_first_decoded(&input);
+
+        let single_chars = &input[new_first_index..num_chars + 1];
+
+        let encoded = &input[num_chars + 1..];
+
+        decode(single_chars, encoded)
+    }
 }
 
 #[cfg(test)]
 mod tests {
-    use crate::{
-        compressed_buffer::CompressedBuffer, huffman_tree::HuffmanTree,
-        utils::display_data_compression_ratio,
-    };
+    use crate::{huffman_tree::HuffmanTree, utils::display_data_compression_ratio};
 
     use super::*;
 
@@ -166,8 +195,8 @@ mod tests {
     fn test_decode() {
         let to_decode = [0, 0, 1, 4, 2, 2, 6];
 
-        let single_chars = vec![65u8, 66u8, 67u8];
-        let decoded = LZWEncoder::decode(single_chars, &to_decode);
+        let single_chars = [65u8, 66u8, 67u8];
+        let decoded = LZWEncoder::decode(&single_chars, &to_decode);
 
         let text: Vec<u8> = "AABABCCABC".bytes().collect();
         assert_eq!(text, decoded);
@@ -187,7 +216,7 @@ mod tests {
         // println!("encoded length: {}", to_decode.len() * 8);
         // println!("encoded: {:?}", to_decode);
 
-        let decoded = LZWEncoder::decode(single_chars, &to_decode);
+        let decoded = LZWEncoder::decode(&single_chars, &to_decode);
 
         assert_eq!(to_encode, decoded);
     }
@@ -201,7 +230,7 @@ mod tests {
 
         let (single_chars, to_decode) = LZWEncoder::encode(&to_encode);
 
-        let decoded = LZWEncoder::decode(single_chars, &to_decode);
+        let decoded = LZWEncoder::decode(&single_chars, &to_decode);
 
         // DEBUG
         // println!("decoded.len(): {}", decoded.len());
@@ -224,36 +253,46 @@ mod tests {
         // HUFFMAN_ENCODING
         let to_encode_with_huffman: Vec<u8> = text.bytes().collect();
         let tree = HuffmanTree::load_tree_from_bytes(&to_encode_with_huffman);
-        let mut compressed_buffer_huffman = CompressedBuffer::new();
-        let bits = tree.encode(&to_encode_with_huffman);
-        bits.iter()
-            .for_each(|&bit| compressed_buffer_huffman.push_bit(bit));
+        let (_, compressed_buffer_huffman) = tree.encode(&to_encode_with_huffman);
 
         // LZW + HUFFMAN encoding
         let to_encode: Vec<u8> = text.bytes().collect();
         let (single_chars_huff_lzw, encoded_with_lzw) = LZWEncoder::encode(&to_encode);
 
         let tree = HuffmanTree::load_tree_from_bytes(&encoded_with_lzw);
-        let mut compressed_buffer = CompressedBuffer::new();
-        let bits = tree.encode(&encoded_with_lzw);
-        bits.iter().for_each(|&bit| compressed_buffer.push_bit(bit));
+        let (nb_bits, compressed_buffer) = tree.encode(&encoded_with_lzw);
 
         // DEBUG print compression rates
         println!("LZW ONLY:");
         display_data_compression_ratio(text.len(), lzw_encoded.len());
 
         println!("HUFFMAN ONLY:");
-        display_data_compression_ratio(text.len(), compressed_buffer_huffman.buffer.len());
+        display_data_compression_ratio(text.len(), compressed_buffer_huffman.len());
 
         println!("LZM FOLLOWED BY HUFFMAN:");
-        display_data_compression_ratio(text.len(), compressed_buffer.buffer.len());
+        display_data_compression_ratio(text.len(), compressed_buffer.len());
         // END DEBUG //
 
-        let decoded_huffman = tree.decode(&compressed_buffer.buffer, bits.len());
+        let decoded_huffman = tree.decode(&compressed_buffer, nb_bits);
 
         assert_eq!(encoded_with_lzw, decoded_huffman);
 
-        let decoded = LZWEncoder::decode(single_chars_huff_lzw, &decoded_huffman);
+        let decoded = LZWEncoder::decode(&single_chars_huff_lzw, &decoded_huffman);
+
+        let text: Vec<u8> = text.bytes().collect();
+        assert_eq!(text, decoded);
+    }
+
+    #[test]
+    fn encode_n_decode_with_metadatas() {
+        let text = "AABABCCABC";
+        let to_encode: Vec<u8> = text.bytes().collect();
+
+        let encoded = LZWEncoder::encode_with_metadata(&to_encode);
+
+        assert_eq!(vec![3, 65, 66, 67, 0, 0, 1, 4, 2, 2, 6], encoded);
+
+        let decoded = LZWEncoder::decode_with_metadata(&encoded);
 
         let text: Vec<u8> = text.bytes().collect();
         assert_eq!(text, decoded);

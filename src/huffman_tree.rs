@@ -7,7 +7,10 @@ use std::{
     ops::Index,
 };
 
-use crate::compressed_buffer::Bit;
+use crate::{
+    compressed_buffer::{Bit, CompressedBuffer},
+    varsize::{encode_varsize, get_first_decoded},
+};
 
 const LEAF_NULL_CHAR: char = '\0';
 const INTERNAL_NODE_VALUE: char = '\0';
@@ -26,7 +29,6 @@ struct HeapNode {
 #[derive(Debug, Eq, PartialEq)]
 struct Node {
     pub c: Option<char>,
-    // pub c: char,
     pub left: Option<Box<Node>>,
     pub right: Option<Box<Node>>,
 }
@@ -309,15 +311,69 @@ impl HuffmanTree {
         self.root.get_encoding(Vec::new())
     }
 
-    pub fn encode(&self, bytes: &[u8]) -> Vec<Bit> {
-        let mut bits = Vec::new();
+    /// encode given bytes
+    ///
+    /// @**returns** (usize, Vec\<u8\>) => (number of bits encoded, the encoded bytes)
+    pub fn encode(&self, bytes: &[u8]) -> (usize, Vec<u8>) {
+        let mut compressed_buffer = CompressedBuffer::new();
+        let mut num_bits: usize = 0;
 
         for &byte in bytes {
-            let mut new_bits = self[byte as char].clone();
-            bits.append(&mut new_bits);
+            let new_bits = self[byte as char].clone();
+
+            for bit in new_bits {
+                compressed_buffer.push_bit(bit);
+                num_bits += 1;
+            }
         }
 
-        bits
+        (num_bits, compressed_buffer.get_buffer())
+    }
+
+    /// return the encoding preceded by the tree content and the size of said tree.
+    ///
+    /// ## Example:
+    ///
+    /// It would be represented as follow:
+    /// [tree_size][tree_content][encoded data]
+    pub fn encode_with_metadatas(input: &[u8]) -> Vec<u8> {
+        let mut encoded: Vec<u8> = Vec::new();
+        let tree = HuffmanTree::load_tree_from_bytes(&input);
+
+        let tree_to_byte = tree.as_bytes();
+
+        // add tree size at the beginning of the buffer
+        let tree_size = tree_to_byte.len() as u8;
+        encoded.push(tree_size);
+        // add tree in the buffer
+        for byte in tree_to_byte {
+            encoded.push(byte);
+        }
+
+        let (num_bits, encoded_data) = tree.encode(input);
+        let num_bits = encode_varsize(num_bits);
+
+        // Add converted bits and their number
+        encoded.extend_from_slice(&num_bits);
+        encoded.extend_from_slice(&encoded_data);
+
+        encoded
+    }
+
+    pub fn decode_with_metadatas(input: &[u8]) -> Vec<u8> {
+        // extracting tree
+        let tree_size = input[0];
+        let tree_content = &input[1..(tree_size as usize + 1)];
+        println!("tree_content: {tree_content:?}");
+        let tree = HuffmanTree::from(tree_content);
+        println!("MIAM");
+
+        let compressed_data = &input[(tree_size as usize + 1)..];
+        let (size, size_last_byte_index) = get_first_decoded(compressed_data);
+
+        let compressed_data = &compressed_data[size_last_byte_index..];
+
+        tree.decode(&compressed_data, size)
     }
 
     pub fn decode(&self, bytes: &[u8], bit_length: usize) -> Vec<u8> {
@@ -448,6 +504,15 @@ impl Index<Vec<u8>> for HuffmanTree {
     }
 }
 
+fn slice_contains_nullchar(values: &[char]) -> bool {
+    for i in 1..values.len() {
+        if values[i - 1] == 1 as char && values[i] == 1 as char {
+            return true;
+        }
+    }
+
+    false
+}
 fn node_from_vec(values: &Vec<char>, index: usize) -> Node {
     let c = values[index];
 
@@ -457,7 +522,6 @@ fn node_from_vec(values: &Vec<char>, index: usize) -> Node {
     // Last Value
     if index + 1 == values.len() {
         return Node::new(Some(c));
-        // return Node::new(values[index]);
     }
 
     // Special scenario: null char are encoded as 0x01 0x01
@@ -465,13 +529,21 @@ fn node_from_vec(values: &Vec<char>, index: usize) -> Node {
         return Node::new(Some(LEAF_NULL_CHAR));
     }
 
-    // TODO add case for leaf that are '\0'
     if values[index] == INTERNAL_NODE_VALUE {
         left = Some(Box::new(node_from_vec(values, index + 1)));
-
         // We know that the next right value is after all the values of the left
         // node so we just need to skip them
-        let count = left.as_ref().unwrap().count();
+        let mut count = left.as_ref().unwrap().count();
+
+        // in case the left node was a null char else if null char in right
+        if count == 1 && values[index + 1] == 1 as char && values[index + 2] == 1 as char {
+            count += 1;
+        } else if index + 1 + count < values.len()
+            && slice_contains_nullchar(&values[index..index + count + 2])
+        {
+            count += 1;
+        }
+
         right = Some(Box::new(node_from_vec(values, index + 1 + count)));
     }
 
@@ -481,7 +553,6 @@ fn node_from_vec(values: &Vec<char>, index: usize) -> Node {
         Node::new(Some(c))
     };
 
-    // let mut node = Node::new(c);
     node.left = left;
     node.right = right;
 
@@ -490,6 +561,34 @@ fn node_from_vec(values: &Vec<char>, index: usize) -> Node {
 
 impl From<Vec<char>> for HuffmanTree {
     fn from(value: Vec<char>) -> Self {
+        let mut tree = HuffmanTree {
+            root: node_from_vec(&value, 0),
+            encoding: HashMap::new(),
+        };
+
+        tree.set_encoding();
+
+        tree
+    }
+}
+
+impl From<&[u8]> for HuffmanTree {
+    fn from(value: &[u8]) -> Self {
+        let value: Vec<char> = value.iter().map(|&byte| byte as char).collect();
+        let mut tree = HuffmanTree {
+            root: node_from_vec(&value, 0),
+            encoding: HashMap::new(),
+        };
+
+        tree.set_encoding();
+
+        tree
+    }
+}
+
+impl From<&Vec<u8>> for HuffmanTree {
+    fn from(value: &Vec<u8>) -> Self {
+        let value: Vec<char> = value.iter().map(|&byte| byte as char).collect();
         let mut tree = HuffmanTree {
             root: node_from_vec(&value, 0),
             encoding: HashMap::new(),
@@ -731,5 +830,64 @@ mod tests {
         assert_eq!(new_tree['a'], bitvec![1, 1, 0, 0]);
         assert_eq!(new_tree['b'], bitvec![1, 1, 0, 1]);
         assert_eq!(new_tree['e'], bitvec![1, 1, 1]);
+    }
+
+    #[test]
+    pub fn encode_n_decode_with_metadatas() {
+        let text = "AAABBCCDACCAA";
+        // let text = "AAABBCCDACCAAAAABBCCDACCAAAAABBCCDACCAAAAABBCCDACCAAAAABBCCDACCAAAAABBCCDACCAA";
+        let text: Vec<u8> = text.bytes().collect();
+        let text: &[u8] = &text;
+
+        let encoded = HuffmanTree::encode_with_metadatas(text);
+        println!("huff: {encoded:?}");
+
+        let decoded = HuffmanTree::decode_with_metadatas(&encoded);
+        for c in &decoded {
+            print!("{}", *c as char);
+        }
+        println!();
+        // decoded.reverse();
+
+        assert_eq!(text, decoded);
+    }
+
+    #[test]
+    pub fn tree_with_null_char() {
+        let text: Vec<u8> = "ABBBCCCCCDDDDDD\0\0".bytes().collect();
+        let tree = HuffmanTree::load_tree_from_bytes(&text);
+        let (nb_bits, encoded) = tree.encode(&text);
+
+        let formatted_tree = tree.as_bytes();
+        let new_tree = HuffmanTree::from(&formatted_tree);
+        let decoded = new_tree.decode(&encoded, nb_bits);
+        assert_eq!(text, decoded);
+
+        let text: Vec<u8> = "ABBBCCCCCDDDDDDD\0\0\0\0".bytes().collect();
+        let tree = HuffmanTree::load_tree_from_bytes(&text);
+        let (nb_bits, encoded) = tree.encode(&text);
+
+        let formatted_tree = tree.as_bytes();
+        let new_tree = HuffmanTree::from(&formatted_tree);
+        let decoded = new_tree.decode(&encoded, nb_bits);
+        assert_eq!(text, decoded);
+
+        let text: Vec<u8> = "ABBBCCCCCDDDDDD\0\0\0\0\0\0".bytes().collect();
+        let tree = HuffmanTree::load_tree_from_bytes(&text);
+        let (nb_bits, encoded) = tree.encode(&text);
+
+        let formatted_tree = tree.as_bytes();
+        let new_tree = HuffmanTree::from(&formatted_tree);
+        let decoded = new_tree.decode(&encoded, nb_bits);
+        assert_eq!(text, decoded);
+
+        let text: Vec<u8> = "ABBBCCCCCDDDDDD\0\0\0\0\0\0\0\0\0\0".bytes().collect();
+        let tree = HuffmanTree::load_tree_from_bytes(&text);
+        let (nb_bits, encoded) = tree.encode(&text);
+
+        let formatted_tree = tree.as_bytes();
+        let new_tree = HuffmanTree::from(&formatted_tree);
+        let decoded = new_tree.decode(&encoded, nb_bits);
+        assert_eq!(text, decoded);
     }
 }
