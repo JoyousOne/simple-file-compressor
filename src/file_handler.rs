@@ -33,13 +33,48 @@ fn create_file(output_file: &str, content: &Vec<u8>) {
     output_f.flush().expect("Failed to flush");
 }
 
-pub fn compress(input_file: &str, output_file: Option<&str>) -> String {
+fn apply_compressing_algos(algos: &mut Vec<&str>, to_encode: &[u8]) -> Vec<u8> {
+    let algo = algos.remove(0);
+
+    let mut encoded = match algo {
+        "huff" | "huffman" => HuffmanTree::encode_with_metadatas(to_encode),
+        "lzw" | "lempel-ziv-welch" => LZWEncoder::encode_with_metadatas(to_encode),
+        _ => panic!("Invalid algorithm selected: {}", algo),
+    };
+
+    if algos.len() > 0 {
+        encoded = apply_compressing_algos(algos, &encoded);
+    }
+
+    encoded
+}
+
+fn apply_uncompressing_algos(algos: &mut Vec<&str>, to_encode: &[u8]) -> Vec<u8> {
+    let algo = algos.pop().unwrap();
+
+    let mut decoded = match algo {
+        "huff" | "huffman" => HuffmanTree::decode_with_metadatas(to_encode),
+        "lzw" | "lempel-ziv-welch" => LZWEncoder::decode_with_metadatas(to_encode),
+        _ => panic!("Invalid algorithm selected: {}", algo),
+    };
+
+    if algos.len() > 0 {
+        decoded = apply_uncompressing_algos(algos, &decoded);
+    }
+
+    decoded
+}
+
+pub fn compress(input_file: &str, output_file: Option<&str>, algos: Option<Vec<&str>>) -> String {
     let bytes =
         fs::read(input_file).expect("Failed to read file in src/filereader.rs => fn compress_file");
 
-    let lzw_encoded = LZWEncoder::encode_with_metadata(&bytes);
+    let mut algos = match algos {
+        Some(al) => al,
+        None => vec!["lzw", "huff"],
+    };
 
-    let encoded = HuffmanTree::encode_with_metadatas(&lzw_encoded);
+    let encoded = apply_compressing_algos(&mut algos, &bytes);
 
     // getting file name
     let output_file = match output_file {
@@ -52,12 +87,20 @@ pub fn compress(input_file: &str, output_file: Option<&str>) -> String {
     String::from(output_file)
 }
 
-pub fn uncompress(compressed_filepath: &str, output_file: Option<&str>) -> String {
+pub fn uncompress(
+    compressed_filepath: &str,
+    output_file: Option<&str>,
+    algos: Option<Vec<&str>>,
+) -> String {
     let compressed_content = fs::read(compressed_filepath)
         .expect("Failed to read file in src/filereader.rs => fn uncompress");
 
-    let decoded = HuffmanTree::decode_with_metadatas(&compressed_content);
-    let decoded = LZWEncoder::decode_with_metadata(&decoded);
+    let mut algos = match algos {
+        Some(al) => al,
+        None => vec!["lzw", "huff"],
+    };
+
+    let decoded = apply_uncompressing_algos(&mut algos, &compressed_content);
 
     // getting file name
     let output_file = match output_file {
@@ -86,7 +129,7 @@ mod tests {
         // let output_file = "tests/test_compressed_file.txt.compressed";
 
         // compress_file(input_file, Some(output_file));
-        compress(input_file, None);
+        compress(input_file, None, None);
 
         let input_content =
             fs::read(input_file).expect("Failed to read file in src/filereader.rs => in test");
@@ -94,7 +137,7 @@ mod tests {
 
         let output_file = inputname_to_outputname(&input_file);
         let restored_file = "tests/restored2.txt";
-        uncompress(&output_file, Some(&restored_file));
+        uncompress(&output_file, Some(&restored_file), None);
 
         let output_content =
             fs::read(&restored_file).expect("Failed to read file in src/filereader.rs => in test");
@@ -107,13 +150,27 @@ mod tests {
     fn compress_with_lzw_then_huffman() {
         let text: Vec<u8> = "AAABBCCDACCAA".bytes().collect();
 
-        let encoded_lzw = LZWEncoder::encode_with_metadata(&text);
+        let encoded_lzw = LZWEncoder::encode_with_metadatas(&text);
         let encoded_huff = HuffmanTree::encode_with_metadatas(&encoded_lzw);
 
         let decoded = HuffmanTree::decode_with_metadatas(&encoded_huff);
         assert_eq!(encoded_lzw, decoded);
 
-        let decoded = LZWEncoder::decode_with_metadata(&decoded);
+        let decoded = LZWEncoder::decode_with_metadatas(&decoded);
+        assert_eq!(text, decoded)
+    }
+
+    #[test]
+    fn compress_with_huffman_then_lzw() {
+        let text: Vec<u8> = "AAABBCCDACCAA".bytes().collect();
+
+        let encoded_huff = HuffmanTree::encode_with_metadatas(&text);
+        let encoded_lzw = LZWEncoder::encode_with_metadatas(&encoded_huff);
+
+        let decoded = LZWEncoder::decode_with_metadatas(&encoded_lzw);
+        assert_eq!(encoded_huff, decoded);
+
+        let decoded = HuffmanTree::decode_with_metadatas(&decoded);
         assert_eq!(text, decoded)
     }
 }

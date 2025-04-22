@@ -13,14 +13,20 @@ mod varsize;
 // http://docopt.org/
 const USAGE: &'static str = "
 Usage:
-    simple-file-compressor (--compress | -c) <file> [<output_file>]
-    simple-file-compressor (--uncompress | -u) <file> [<output_file>]
+    simple-file-compressor (--compress | -c) [--algo=<algorithm>...] <file> [<output_file>]
+    simple-file-compressor (--uncompress | -u) [--algo=<algorithm>...] <file> [<output_file>]
     simple-file-compressor (--help | -h)
 
 Options:
     -h, --help               Show this message.
     -c, --compress           compress a given file.
-    -u, --uncompress           uncompress a given file.
+    -u, --uncompress         uncompress a given file.
+    --algo=<algorithm>       Compression algorithm(s) to use (in order).
+                                [default: huff lzw]
+                                Options:
+                                    - huff, huffman
+                                    - lzw, lempel-ziv-welch
+                                    - others to come soon
 ";
 
 fn main() {
@@ -38,21 +44,21 @@ fn main() {
     let compressing = args.get_bool("--compress");
     let uncompressing = args.get_bool("--uncompress");
 
-    // let output_file = match output
     let output_file_arg = args.get_str("<output_file>");
     let output_file = match output_file_arg {
         "" => None,
         filename => Some(filename),
     };
 
+    let algos: Vec<&str> = args.get_vec("--algo");
+    let algos = if algos.len() == 0 { None } else { Some(algos) };
+
     if compressing {
         // compress file
-        let compressed_filename = compress(file, output_file);
+        let compressed_filename = compress(file, output_file, algos);
 
         println!("Succesfully compressed as {}", compressed_filename);
-    }
-
-    if uncompressing {
+    } else if uncompressing {
         // validate file format
         if let None = file.find(".compressed") {
             panic!(
@@ -61,7 +67,7 @@ fn main() {
         }
 
         // uncompress file
-        let uncompressed_filename = uncompress(file, output_file);
+        let uncompressed_filename = uncompress(file, output_file, algos);
         println!("Succesfully uncompressed as {}", uncompressed_filename);
     }
 }
