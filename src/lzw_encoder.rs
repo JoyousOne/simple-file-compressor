@@ -52,19 +52,20 @@ pub mod LZWEncoder {
             let mut next = i + 1;
             let mut index = 0;
 
+            let mut done = false;
+
             while let Some(codeword_index) = codewords.get(&current) {
                 index = *codeword_index;
 
                 if next == input.len() {
-                    // adding char that will be removed afterward
-                    current.push(0);
+                    done = true;
                     break;
                 }
                 current.push(input[next]);
                 next += 1;
             }
+
             // NOTE validation can be better
-            let done = current[current.len() - 1] == 0;
             if !done {
                 let new_codeword = current.clone();
                 insert(new_codeword, &mut codewords, &mut encoding);
@@ -150,10 +151,9 @@ pub mod LZWEncoder {
     /// It would be represented as follow:
     /// [num_unique_chars][chars][encoded data]
     /// [3][A, B, C][0, 0, 1, 4, 2, 2, 6]
-    pub fn encode_with_metadata(input: &[u8]) -> Vec<u8> {
+    pub fn encode_with_metadatas(input: &[u8]) -> Vec<u8> {
         let (unique_chars, encoded) = encode(input);
         let num_chars = encode_varsize(unique_chars.len());
-
         let mut new_encoded =
             Vec::with_capacity(num_chars.len() + unique_chars.len() + encoded.len());
         new_encoded.extend_from_slice(&num_chars);
@@ -164,7 +164,7 @@ pub mod LZWEncoder {
     }
 
     /// from an encoded input with metadatas return decoded bytes
-    pub fn decode_with_metadata(input: &[u8]) -> Vec<u8> {
+    pub fn decode_with_metadatas(input: &[u8]) -> Vec<u8> {
         let (num_chars, new_first_index) = get_first_decoded(&input);
 
         let single_chars = &input[new_first_index..num_chars + 1];
@@ -288,11 +288,11 @@ mod tests {
         let text = "AABABCCABC";
         let to_encode: Vec<u8> = text.bytes().collect();
 
-        let encoded = LZWEncoder::encode_with_metadata(&to_encode);
+        let encoded = LZWEncoder::encode_with_metadatas(&to_encode);
 
         assert_eq!(vec![3, 65, 66, 67, 0, 0, 1, 4, 2, 2, 6], encoded);
 
-        let decoded = LZWEncoder::decode_with_metadata(&encoded);
+        let decoded = LZWEncoder::decode_with_metadatas(&encoded);
 
         let text: Vec<u8> = text.bytes().collect();
         assert_eq!(text, decoded);

@@ -9,7 +9,7 @@ use std::{
 
 use crate::{
     compressed_buffer::{Bit, CompressedBuffer},
-    varsize::{encode_varsize, get_first_decoded},
+    varsize::{decode_varsize, encode_varsize, get_first_decoded},
 };
 
 const LEAF_NULL_CHAR: char = '\0';
@@ -129,7 +129,7 @@ impl Node {
 
     pub fn print_encoding(&self, encoding: Vec<u8>) {
         if let Some(c) = self.c {
-            print!("{}: ", c);
+            print!("'{}':    \t", c.escape_default());
             // print!("{}: ", self.c);
 
             for bit in encoding {
@@ -162,7 +162,7 @@ impl Node {
         }
 
         match self.c {
-            Some(c) => println!("({})", c),
+            Some(c) => println!("('{}')", c.escape_default()),
             // Some(c) => println!("({})", c as u8),
             None => println!("()"),
         }
@@ -343,8 +343,11 @@ impl HuffmanTree {
         let tree_to_byte = tree.as_bytes();
 
         // add tree size at the beginning of the buffer
-        let tree_size = tree_to_byte.len() as u8;
-        encoded.push(tree_size);
+        // let tree_size = tree_to_byte.len() as u8;
+        let tree_size = encode_varsize(tree_to_byte.len());
+
+        encoded.extend_from_slice(&tree_size);
+
         // add tree in the buffer
         for byte in tree_to_byte {
             encoded.push(byte);
@@ -362,13 +365,11 @@ impl HuffmanTree {
 
     pub fn decode_with_metadatas(input: &[u8]) -> Vec<u8> {
         // extracting tree
-        let tree_size = input[0];
-        let tree_content = &input[1..(tree_size as usize + 1)];
-        println!("tree_content: {tree_content:?}");
+        let (tree_size, tree_content_start) = get_first_decoded(&input);
+        let tree_content = &input[tree_content_start..(tree_content_start + tree_size)];
         let tree = HuffmanTree::from(tree_content);
-        println!("MIAM");
 
-        let compressed_data = &input[(tree_size as usize + 1)..];
+        let compressed_data = &input[(tree_content_start + tree_size)..];
         let (size, size_last_byte_index) = get_first_decoded(compressed_data);
 
         let compressed_data = &compressed_data[size_last_byte_index..];
@@ -513,6 +514,7 @@ fn slice_contains_nullchar(values: &[char]) -> bool {
 
     false
 }
+
 fn node_from_vec(values: &Vec<char>, index: usize) -> Node {
     let c = values[index];
 
