@@ -174,4 +174,17 @@ mod tests {
         let decoded = decode_varsize(&n);
         assert_eq!(vec![99999], decoded);
     }
+
+    #[test]
+    fn test_encode_n_decode() {
+        let num = 7850;
+        let encoded = encode_varsize(num);
+
+        let decoded = decode_varsize(&encoded);
+
+        assert_eq!(num, decoded[0]);
+
+        let (decoded, _) = get_first_decoded(&encoded);
+        assert_eq!(num, decoded);
+    }
 }
