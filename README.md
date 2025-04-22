@@ -45,6 +45,31 @@ Succesfully uncompressed as restored.txt
 # No output indicating that the files are the same
 ```
 
+
+```sh
+➜ python3 -c "print('A' * 1000 + 'B' * 2000 + 'A' * 540 + 'C' * 3000)" > regular_file.txt
+
+➜ ll -B regular_file.txt
+.rw-r--r-- 6,541 user regular_file.txt
+# original size 6541 bytes
+
+➜ simple-file-compressor --compress regular_file.txt
+Succesfully compressed as regular_file.txt.compressed
+
+➜ ll -B regular_file.txt.compressed
+.rw-r--r-- 155 user regular_file.txt.compressed
+# compressed size 38 bytes
+
+➜ simple-file-compressor --uncompress regular_file.txt.compressed restored.txt
+Succesfully uncompressed as restored.txt
+
+➜ ll -B restored.txt
+.rw-r--r-- 6,541 user restored.txt
+
+➜ diff regular_file.txt restored.txt
+# No output indicating that the files are the same
+```
+
 ## How does it work
 
 ### Lempel–Ziv–Welch
