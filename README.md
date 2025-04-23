@@ -145,5 +145,11 @@ simple-file-compressor --uncompress --algo=lzw --algo=huff file.txt
 
 - Add option to combine algorithm like one would like
 - Burrows-Wheeler Transform
-- Possibly add option for Dynamic Markov Compression
 - arithmetic compression
+- asymmetric numeral systems (ANS)
+    excellent YouTube video about it: https://youtu.be/RFWJM8JMXBs?si=PXemuPzI_-kTOMfj
+    worth looking at
+    - range ANS (rANS)
+    - Uniform Birary Variant (uABS)
+    
+- Possibly add option for Dynamic Markov Compression
