@@ -20,7 +20,7 @@ pub fn display_data_compression_ratio(
 
 #[allow(dead_code)]
 /// get the entropy for given values
-pub fn entropy(values: &[u8]) -> f64 {
+pub fn get_entropy(values: &[u8]) -> f64 {
     let mut freq: HashMap<u8, usize> = HashMap::new();
     let mut total: usize = 0;
 
@@ -54,7 +54,7 @@ mod tests {
     #[test]
     fn test_entropy() {
         let bytes: Vec<u8> = "AABBCCDD".bytes().collect();
-        let entropy = entropy(&bytes);
+        let entropy = get_entropy(&bytes);
 
         assert_eq!(2., entropy);
     }
