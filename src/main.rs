@@ -3,11 +3,9 @@ use core::panic;
 use docopt::Docopt;
 use file_handler::{compress, uncompress};
 
-mod burrows_wheeler;
+mod algorithms;
 mod compressed_buffer;
 mod file_handler;
-mod huffman_tree;
-mod lzw_encoder;
 mod utils;
 mod varsize;
 

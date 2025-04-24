@@ -75,6 +75,7 @@ pub mod BurrowsWheeler {
         (index, transformed)
     }
 
+    // TODO make parallel too?
     pub fn decode(index: usize, input: &[u8]) -> Vec<u8> {
         let lenght = input.len();
 

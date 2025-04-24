@@ -4,7 +4,7 @@ use std::{
     path::{Path, PathBuf},
 };
 
-use crate::{huffman_tree::HuffmanTree, lzw_encoder::LZWEncoder};
+use crate::{algorithms::huffman_tree::HuffmanTree, algorithms::lzw_encoder::LZWEncoder};
 
 fn inputname_to_outputname(input_file: &str) -> String {
     let tree_path = PathBuf::from(input_file);

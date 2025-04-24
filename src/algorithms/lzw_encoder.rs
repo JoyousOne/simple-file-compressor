@@ -1,5 +1,4 @@
 pub mod LZWEncoder {
-    use core::num;
     use std::collections::HashMap;
 
     use crate::varsize::{decode_varsize, encode_varsize, get_first_decoded};
@@ -177,7 +176,7 @@ pub mod LZWEncoder {
 
 #[cfg(test)]
 mod tests {
-    use crate::{huffman_tree::HuffmanTree, utils::display_data_compression_ratio};
+    use crate::{algorithms::huffman_tree::HuffmanTree, utils::display_data_compression_ratio};
 
     use super::*;
 
