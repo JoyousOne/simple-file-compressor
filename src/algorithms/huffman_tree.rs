@@ -1,6 +1,6 @@
 use core::panic;
 use std::{
-    cmp::Ordering,
+    cmp::{Eq, Ordering},
     collections::{BinaryHeap, HashMap},
     fs::{self, File},
     io::Write,
@@ -9,10 +9,15 @@ use std::{
 
 use crate::{
     compressed_buffer::{Bit, CompressedBuffer},
-    varsize::{decode_varsize, encode_varsize, get_first_decoded},
+    varsize::{encode_varsize, get_first_decoded},
 };
 
+// const INTERNAL_NODE_VALUE: char = 255 as char;
+
 const LEAF_NULL_CHAR: char = '\0';
+// FIXME changing value to 1 from 255 is a temporary fix
+const ENCODED_NULL_CHAR: char = 255 as char;
+// const ENCODED_NULL_CHAR: char = 1 as char;
 const INTERNAL_NODE_VALUE: char = '\0';
 
 #[derive(Debug, Eq, PartialEq, PartialOrd)]
@@ -188,11 +193,12 @@ impl Node {
             // TODO doit prendre en compte le scénario où le leaf est 0
             Some(LEAF_NULL_CHAR) => {
                 for _ in 0..2 {
-                    values.push(1 as char);
+                    values.push(ENCODED_NULL_CHAR);
+                    // values.push(1 as char);
                 }
             }
             Some(c) => values.push(c),
-            None => values.push(0 as char),
+            None => values.push(INTERNAL_NODE_VALUE),
         }
 
         if let Some(l) = &self.left {
@@ -207,8 +213,54 @@ impl Node {
 
 pub struct HuffmanTree {
     root: Node,
-    // encoding: HashMap<char, Vec<u8>>,
     encoding: HashMap<char, Vec<Bit>>,
+}
+
+// DEBUG use to see bad encoding
+impl PartialEq for HuffmanTree {
+    fn eq(&self, other: &Self) -> bool {
+        let print_error = |c: &char, bits: &Vec<Bit>, other_bits: &Vec<Bit>| {
+            println!("left: '{}': {bits:?}", c.escape_default());
+            println!("right: '{}': {other_bits:?}", c.escape_default());
+        };
+
+        let mut valid = true;
+        for (c, bits) in &self.encoding {
+            // let other_bits = &other[c];
+            let other_bits = match other.encoding.get(c) {
+                Some(other_bits) => other_bits,
+                None => {
+                    println!(
+                        "right does not have an encoding for the char {}",
+                        c.escape_default()
+                    );
+                    // return false;
+                    valid = false;
+                    continue;
+                }
+            };
+            if bits.len() != other_bits.len() {
+                print_error(c, bits, other_bits);
+                // return false;
+                valid = false;
+            } else {
+                for i in 0..bits.len() {
+                    if bits[i] != other_bits[i] {
+                        print_error(c, bits, other_bits);
+                        // return false;
+                        valid = false;
+                    }
+                }
+            }
+        }
+
+        if self.encoding.len() != other.encoding.len() {
+            println!("different encoding length");
+            return false;
+        }
+
+        valid
+    }
 }
 
 impl HuffmanTree {
@@ -507,7 +559,7 @@ impl Index<Vec<u8>> for HuffmanTree {
 
 fn slice_contains_nullchar(values: &[char]) -> bool {
     for i in 1..values.len() {
-        if values[i - 1] == 1 as char && values[i] == 1 as char {
+        if values[i - 1] == ENCODED_NULL_CHAR && values[i] == ENCODED_NULL_CHAR {
             return true;
         }
     }
@@ -515,6 +567,12 @@ fn slice_contains_nullchar(values: &[char]) -> bool {
     false
 }
 
+// FIXME there is some very specific cases that would probably not work, try with 1 to see.
+// error occurs when the far right is the ENCODED_NULL_CHAR is the same as the previous one
+// [...0,68,90,1,1,1]
+//             ^ ^ the 2 last digit are the encoded value
+//             | the function mistake is as: ['\u{0}', '\u{1}']
+//                               instead of: ['\u{1}', '\u{0}']
 fn node_from_vec(values: &Vec<char>, index: usize) -> Node {
     let c = values[index];
 
@@ -527,7 +585,8 @@ fn node_from_vec(values: &Vec<char>, index: usize) -> Node {
     }
 
     // Special scenario: null char are encoded as 0x01 0x01
-    if c == (1 as char) && values[index + 1] == (1 as char) {
+    if c == ENCODED_NULL_CHAR && values[index + 1] == ENCODED_NULL_CHAR {
+        // if c == (1 as char) && values[index + 1] == (1 as char) {
         return Node::new(Some(LEAF_NULL_CHAR));
     }
 
@@ -538,7 +597,10 @@ fn node_from_vec(values: &Vec<char>, index: usize) -> Node {
         let mut count = left.as_ref().unwrap().count();
 
         // in case the left node was a null char else if null char in right
-        if count == 1 && values[index + 1] == 1 as char && values[index + 2] == 1 as char {
+        if count == 1
+            && values[index + 1] == ENCODED_NULL_CHAR
+            && values[index + 2] == ENCODED_NULL_CHAR
+        {
             count += 1;
         } else if index + 1 + count < values.len()
             && slice_contains_nullchar(&values[index..index + count + 2])
