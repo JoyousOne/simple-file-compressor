@@ -37,6 +37,8 @@ pub mod BurrowsWheeler {
 
     use rayon::prelude::*;
 
+    use crate::varsize::{encode_varsize, get_first_decoded};
+
     /// same functionality but works in parallel
     pub fn encode_par(input: &[u8]) -> (usize, Vec<u8>) {
         let lenght = input.len();
@@ -52,7 +54,7 @@ pub mod BurrowsWheeler {
         let optimal_threads = num_cpus::get();
         rayon::ThreadPoolBuilder::new()
             .num_threads(optimal_threads) // Set optimal for your CPU
-            .build_global()
+            .build()
             .unwrap();
 
         // updating rows in parallel
@@ -101,6 +103,27 @@ pub mod BurrowsWheeler {
         table.sort();
 
         table[index].clone()
+    }
+
+    pub fn encode_with_metadata(input: &[u8], parallel: bool) -> Vec<u8> {
+        let (row_index, encoded_input) = if parallel {
+            encode_par(&input)
+        } else {
+            encode(&input)
+        };
+
+        // adding index row at the beginning
+        let mut encoded = encode_varsize(row_index);
+
+        encoded.extend_from_slice(&encoded_input);
+
+        encoded
+    }
+
+    pub fn decode_with_metadata(input: &[u8]) -> Vec<u8> {
+        let (index, index_end_found) = get_first_decoded(&input);
+        let encoded = &input[index_end_found..];
+        decode(index, encoded)
     }
 
     /// DEBUG function
@@ -173,5 +196,20 @@ mod tests {
 
         let result: Vec<u8> = "BANANA".bytes().collect();
         assert_eq!(result, transformed);
+    }
+
+    #[test]
+    fn burrows_wheeler_encoding_with_metadatas() {
+        let text: Vec<u8> = "BANANA".bytes().collect();
+
+        // sequential
+        let encoded = BurrowsWheeler::encode_with_metadata(&text, false);
+        let decoded = BurrowsWheeler::decode_with_metadata(&encoded);
+        assert_eq!(text, decoded);
+
+        // parallel
+        let encoded = BurrowsWheeler::encode_with_metadata(&text, true);
+        let decoded = BurrowsWheeler::decode_with_metadata(&encoded);
+        assert_eq!(text, decoded);
     }
 }
