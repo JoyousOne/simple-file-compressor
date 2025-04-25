@@ -33,7 +33,10 @@ pub mod BurrowsWheeler {
 
     // TODO move to front algo
 
-    use std::sync::{Arc, Mutex};
+    use std::{
+        collections::HashMap,
+        sync::{Arc, Mutex},
+    };
 
     use rayon::prelude::*;
 
@@ -63,6 +66,7 @@ pub mod BurrowsWheeler {
             row.rotate_left(i);
         });
 
+        // OPTIMIZE possible unecessary table copy
         let mut table: Vec<Vec<u8>> = table
             .iter()
             .map(|row| row.lock().unwrap().clone())
@@ -78,31 +82,50 @@ pub mod BurrowsWheeler {
     }
 
     // TODO make parallel too?
+    // LF MAPPING
     pub fn decode(index: usize, input: &[u8]) -> Vec<u8> {
         let lenght = input.len();
 
-        // initiating table
-        let mut table: Vec<Vec<u8>> = input
-            .iter()
-            .map(|&c| {
-                let mut row = vec![0; lenght];
-                row[lenght - 1] = c;
-                row
-            })
-            .collect();
-
-        // rebuilding original table
-        for j in (0..lenght - 1).rev() {
-            table.sort();
-
-            for i in 0..lenght {
-                table[i][j] = input[i];
+        // counting every occurence in order
+        let mut last_col_freq: Vec<(u8, usize)> = Vec::with_capacity(lenght);
+        let mut count: HashMap<u8, usize> = HashMap::new();
+        for c in input {
+            if let Some(freq) = count.get_mut(c) {
+                *freq += 1;
+                last_col_freq.push((*c, *freq));
+            } else {
+                count.insert(*c, 1);
+                last_col_freq.push((*c, 1));
             }
         }
 
-        table.sort();
+        // setting first column in order
+        let mut first_col: Vec<(&(u8, usize), usize)> = last_col_freq
+            .iter()
+            .enumerate()
+            .map(|(i, freq)| (freq, i))
+            .collect();
+        first_col.sort();
 
-        table[index].clone()
+        // setting up last colum indexes
+        let mut last_col = vec![(0u8, 0usize); lenght];
+        first_col
+            .iter()
+            .enumerate()
+            .for_each(|(index_first_col, (_, i))| {
+                last_col[*i] = (last_col_freq[*i].0, index_first_col);
+            });
+
+        // decoding from the indexes
+        let mut decoded = vec![0u8; lenght];
+        let mut last_col_index = index;
+        for i in (0..lenght).rev() {
+            let (c, first_col_index) = last_col[last_col_index];
+            decoded[i] = c;
+            last_col_index = first_col_index;
+        }
+
+        decoded
     }
 
     pub fn encode_with_metadata(input: &[u8], parallel: bool) -> Vec<u8> {
@@ -173,29 +196,40 @@ mod tests {
         let mut text: Vec<u8> = "BANANA".bytes().collect();
 
         // DEBUG
-        // let mut bloat: Vec<u8> = "BANANA".bytes().collect();
-        // for _ in 0..1000 {
-        //     text.extend_from_slice(&bloat);
-        // }
+        let mut bloat: Vec<u8> = "BANANA".bytes().collect();
+        for _ in 0..10000 {
+            text.extend_from_slice(&bloat);
+        }
 
+        // ENCODING
         let start = Instant::now();
-        let _ = BurrowsWheeler::encode(&text);
+        let encoded = BurrowsWheeler::encode(&text);
         let duration_seq = start.elapsed();
         println!("Time elapsed for sequential encoding: {:?}", duration_seq);
 
         let start = Instant::now();
-        let _ = BurrowsWheeler::encode_par(&text);
+        let _encoded_par = BurrowsWheeler::encode_par(&text);
         let duration_seq = start.elapsed();
-        println!("Time elapsed for parallel: {:?}", duration_seq);
+        println!("Time elapsed for parallel encoding: {:?}", duration_seq);
+
+        // DECODING
+        let start = Instant::now();
+        let _ = BurrowsWheeler::decode(encoded.0, &encoded.1);
+        let duration_seq = start.elapsed();
+        println!("Time elapsed for sequential decoding: {:?}", duration_seq);
     }
 
     #[test]
     fn burrows_wheeler_decode() {
         let text: Vec<u8> = "NNBAAA".bytes().collect();
         let transformed = BurrowsWheeler::decode(3, &text);
-
         let result: Vec<u8> = "BANANA".bytes().collect();
         assert_eq!(result, transformed);
+
+        let text: Vec<u8> = "ACAACG".bytes().collect();
+        let (index, encoded) = BurrowsWheeler::encode(&text);
+        let decoded = BurrowsWheeler::decode(index, &encoded);
+        assert_eq!(text, decoded);
     }
 
     #[test]
