@@ -30,6 +30,8 @@ You can use it to compress and decompress files using multiple algorithms in seq
 
 - **Huffman Coding** (`huff`, `huffman`)
 - **LZW (Lempel-Ziv-Welch)** (`lzw`, `lempel-ziv-welch`)
+- **Burrows-Wheeler Transform** (`bwt`, `burrows-wheeler-transform`)
+- **Move-To-Front** (`mtf`, `move-to-front`)
 - _(More to come soon!)_
 
 > NOTE: words following the algorithm name are use to reorder the algorithm usage.
@@ -133,6 +135,19 @@ simple-file-compressor --compress --algo=lzw --algo=huff file.txt
 simple-file-compressor --uncompress --algo=lzw --algo=huff file.txt
 ```
 
+### Other usage examples
+
+```sh
+simple-file-compressor --compress --algo=bwt --algo=lzw --algo=huff regular_file.txt
+simple-file-compressor --uncompress --algo=bwt --algo=lzw --algo=huff regular_file.txt.compressed
+# orignal size: 6541 -> to: 467
+
+
+simple-file-compressor --compress --algo=bwt --algo=mtf --algo=huff --algo=lzw regular_file.txt
+simple-file-compressor --uncompress --algo=bwt --algo=mtf --algo=huff --algo=lzw regular_file.txt.compressed
+# orignal size: 6541 -> to: 79
+```
+
 ## How does it work
 
 ### Lempel–Ziv–Welch
@@ -143,8 +158,9 @@ simple-file-compressor --uncompress --algo=lzw --algo=huff file.txt
 
 ## TODO
 
-- Add option to combine algorithm like one would like
-- Burrows-Wheeler Transform
+- ~~Add option to combine algorithm like one would like~~
+- ~~Burrows-Wheeler Transform~~
+ - ~~move to front~~
 - arithmetic compression
 - asymmetric numeral systems (ANS)
     excellent YouTube video about it: https://youtu.be/RFWJM8JMXBs?si=PXemuPzI_-kTOMfj
