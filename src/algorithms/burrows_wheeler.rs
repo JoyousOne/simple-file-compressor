@@ -31,8 +31,6 @@ pub mod BurrowsWheeler {
         (index, transformed)
     }
 
-    // TODO move to front algo
-
     use std::{
         collections::HashMap,
         sync::{Arc, Mutex},
@@ -81,8 +79,6 @@ pub mod BurrowsWheeler {
         (index, transformed)
     }
 
-    // TODO make parallel too?
-    // LF MAPPING
     pub fn decode(index: usize, input: &[u8]) -> Vec<u8> {
         let lenght = input.len();
 
