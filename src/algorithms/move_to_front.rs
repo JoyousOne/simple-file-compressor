@@ -1,4 +1,5 @@
-pub mod move_to_front {
+#[allow(non_snake_case)]
+pub mod MoveToFront {
 
     pub fn encode(input: &[u8]) -> Vec<u8> {
         let mut unique_symbols: Vec<u8> = (0..255).collect();
@@ -61,7 +62,7 @@ mod tests {
     #[test]
     fn move_to_front_encode() {
         let text: Vec<u8> = "NNBAAA".bytes().collect();
-        let encoded = move_to_front::encode(&text);
+        let encoded = MoveToFront::encode(&text);
 
         let initial_entropy = (get_entropy(&text) * 100.).round() / 100.;
         let encoded_entropy = (get_entropy(&encoded) * 100.).round() / 100.;
@@ -73,7 +74,7 @@ mod tests {
     #[test]
     fn move_to_front_decode() {
         let encoded = vec![78, 0, 67, 67, 0, 0];
-        let decoded = move_to_front::decode(&encoded);
+        let decoded = MoveToFront::decode(&encoded);
 
         let expected: Vec<u8> = "NNBAAA".bytes().collect();
         assert_eq!(expected, decoded);

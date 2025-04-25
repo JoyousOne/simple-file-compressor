@@ -4,7 +4,28 @@ use std::{
     path::{Path, PathBuf},
 };
 
-use crate::{algorithms::huffman_tree::HuffmanTree, algorithms::lzw_encoder::LZWEncoder};
+use crate::algorithms::{
+    burrows_wheeler::BurrowsWheeler, huffman_tree::HuffmanTree, lzw_encoder::LZWEncoder,
+    move_to_front::MoveToFront,
+};
+
+macro_rules! match_algo {
+    ($algo:expr => {$huff:expr, $lzw:expr, $bwt:expr, $mtf:expr}) => {
+        match $algo {
+            "huff" | "huffman" => $huff,
+            "lzw" | "lempel-ziv-welch" => $lzw,
+            "bwt" | "burrows-wheeler" | "burrows-wheeler-transform" => $bwt,
+            "mtf" | "move-to-front" => $mtf,
+            // TODO YOU ARE HERE
+            // add burrows_wheeler_transform
+            // add move_to_front
+            _ => panic!("Invalid algorithm selected: {}", $algo),
+            // _ => $default,
+        }
+    };
+}
+
+const DEFAULT_COMPRESSION: [&'static str; 2] = ["lzw", "huff"];
 
 fn inputname_to_outputname(input_file: &str) -> String {
     let tree_path = PathBuf::from(input_file);
@@ -36,11 +57,14 @@ fn create_file(output_file: &str, content: &Vec<u8>) {
 fn apply_compressing_algos(algos: &mut Vec<&str>, to_encode: &[u8]) -> Vec<u8> {
     let algo = algos.remove(0);
 
-    let mut encoded = match algo {
-        "huff" | "huffman" => HuffmanTree::encode_with_metadatas(to_encode),
-        "lzw" | "lempel-ziv-welch" => LZWEncoder::encode_with_metadatas(to_encode),
-        _ => panic!("Invalid algorithm selected: {}", algo),
-    };
+    let mut encoded = match_algo!(
+        algo => {
+            HuffmanTree::encode_with_metadatas(to_encode),
+            LZWEncoder::encode_with_metadatas(to_encode),
+            BurrowsWheeler::encode_with_metadata(to_encode, true),
+            MoveToFront::encode(to_encode)
+        }
+    );
 
     if algos.len() > 0 {
         encoded = apply_compressing_algos(algos, &encoded);
@@ -52,11 +76,14 @@ fn apply_compressing_algos(algos: &mut Vec<&str>, to_encode: &[u8]) -> Vec<u8> {
 fn apply_uncompressing_algos(algos: &mut Vec<&str>, to_encode: &[u8]) -> Vec<u8> {
     let algo = algos.pop().unwrap();
 
-    let mut decoded = match algo {
-        "huff" | "huffman" => HuffmanTree::decode_with_metadatas(to_encode),
-        "lzw" | "lempel-ziv-welch" => LZWEncoder::decode_with_metadatas(to_encode),
-        _ => panic!("Invalid algorithm selected: {}", algo),
-    };
+    let mut decoded = match_algo!(
+        algo => {
+            HuffmanTree::decode_with_metadatas(to_encode),
+            LZWEncoder::decode_with_metadatas(to_encode),
+            BurrowsWheeler::decode_with_metadata(to_encode),
+            MoveToFront::decode(to_encode)
+         }
+    );
 
     if algos.len() > 0 {
         decoded = apply_uncompressing_algos(algos, &decoded);
@@ -69,9 +96,9 @@ pub fn compress(input_file: &str, output_file: Option<&str>, algos: Option<Vec<&
     let bytes =
         fs::read(input_file).expect("Failed to read file in src/filereader.rs => fn compress_file");
 
-    let mut algos = match algos {
+    let mut algos: Vec<&str> = match algos {
         Some(al) => al,
-        None => vec!["lzw", "huff"],
+        None => DEFAULT_COMPRESSION.to_vec(),
     };
 
     let encoded = apply_compressing_algos(&mut algos, &bytes);
@@ -97,7 +124,7 @@ pub fn uncompress(
 
     let mut algos = match algos {
         Some(al) => al,
-        None => vec!["lzw", "huff"],
+        None => DEFAULT_COMPRESSION.to_vec(),
     };
 
     let decoded = apply_uncompressing_algos(&mut algos, &compressed_content);
@@ -116,6 +143,8 @@ pub fn uncompress(
 #[cfg(test)]
 mod tests {
 
+    use crate::algorithms::burrows_wheeler::BurrowsWheeler;
+
     use super::*;
 
     /* NOTE the file test test_uncommpressed_file.txt was generated with:
@@ -126,17 +155,17 @@ mod tests {
     #[test]
     fn test_compress_n_uncompress_with_huffman_n_lzw() {
         let input_file = "tests/test_uncompressed_file.txt";
-        // let output_file = "tests/test_compressed_file.txt.compressed";
+        let output_file = "tests/test_compressed_file.compressed";
 
         // compress_file(input_file, Some(output_file));
-        compress(input_file, None, None);
+        compress(input_file, Some(output_file), None);
 
         let input_content =
             fs::read(input_file).expect("Failed to read file in src/filereader.rs => in test");
         let input_content = String::from_utf8(input_content).unwrap();
 
-        let output_file = inputname_to_outputname(&input_file);
-        let restored_file = "tests/restored2.txt";
+        // let output_file = inputname_to_outputname(&input_file);
+        let restored_file = "tests/restored.txt";
         uncompress(&output_file, Some(&restored_file), None);
 
         let output_content =
@@ -172,5 +201,38 @@ mod tests {
 
         let decoded = HuffmanTree::decode_with_metadatas(&decoded);
         assert_eq!(text, decoded)
+    }
+
+    #[test]
+    fn compress_with_bwt_mtf_huff() {
+        let mut text: Vec<u8> = "AAABBCCDACCAA".bytes().collect();
+        let bloat = text.clone();
+        for _ in 0..100 {
+            text.extend_from_slice(&bloat);
+        }
+
+        let encoded_bwt = BurrowsWheeler::encode_with_metadata(&text, false);
+        let encoded_mtf = MoveToFront::encode(&encoded_bwt);
+        let encoded_huff = HuffmanTree::encode_with_metadatas(&encoded_mtf);
+
+        // println!("text size: {}", text.len());
+
+        // println!("encoded_bwt {encoded_bwt:?}");
+        // println!("encoded_bwt size {}", encoded_bwt.len());
+
+        // println!("encoded_mtf {encoded_mtf:?}");
+        // println!("encoded_mtf size {}", encoded_mtf.len());
+
+        // println!("encoded_huff {encoded_huff:?}");
+        // println!("encoded_huff size {}", encoded_huff.len());
+
+        let decoded_huff = HuffmanTree::decode_with_metadatas(&encoded_huff);
+        assert_eq!(decoded_huff, encoded_mtf);
+
+        let decoded_mft = MoveToFront::decode(&decoded_huff);
+        assert_eq!(decoded_mft, encoded_bwt);
+
+        let decoded_bwt = BurrowsWheeler::decode_with_metadata(&decoded_mft);
+        assert_eq!(text, decoded_bwt);
     }
 }
