@@ -25,6 +25,8 @@ Options:
                                 Options:
                                     - huff, huffman
                                     - lzw, lempel-ziv-welch
+                                    - bwt, burrows-wheeler, burrows-wheeler-transform
+                                    - mtf, move-to-front
                                     - others to come soon
 ";
 
