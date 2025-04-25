@@ -54,6 +54,7 @@ cd simple-file-compressor
 - [Manual](#manual)
 - [Default usage](#default-usage)
 - [Algorithm Reordering](#algorithm-reordering)
+- [Other examples](#other-usage-examples)
 
 ### Manual:
 
