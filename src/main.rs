@@ -4,6 +4,7 @@ use docopt::Docopt;
 use file_handler::{compress, uncompress};
 
 mod algorithms;
+mod big_num;
 mod compressed_buffer;
 mod file_handler;
 mod utils;
