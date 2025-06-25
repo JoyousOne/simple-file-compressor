@@ -222,18 +222,9 @@ mod tests {
 
     #[test]
     fn arithmetic_simple_test() {
-        // let text: Vec<u8> = "RGGBRAA".bytes().collect();
         let text: Vec<u8> = "RGGRRRGGGB\n".bytes().collect();
-        // let text: Vec<u8> = "RRGRRRGGGB".bytes().collect();
-        // let text: Vec<u8> = "RRGRRRGGGB".bytes().collect();
-        // let text: Vec<u8> = "BBB\n".bytes().collect();
-        // let text: Vec<u8> = "RGGRRRGGGBGR".bytes().collect();
-        // let text: Vec<u8> = "ABBCCC".bytes().collect();
-        // let text: Vec<u8> = "ABBB\n".bytes().collect();
-        // let text: Vec<u8> = "AAAAACCCCCCCBBB\n".bytes().collect();
 
         let (freq, encoded) = ArithmeticEncoder::encode(&text);
-
         let decoded = ArithmeticEncoder::decode(freq, encoded);
 
         assert_eq!(text, decoded);
@@ -244,21 +235,14 @@ mod tests {
         let echantillon: Vec<u8> = "AAAAACCCCadkjahsdkjashdkjashdjkashdkjashdCCCBBB"
             .bytes()
             .collect();
-        return;
+
         let mut text: Vec<u8> = Vec::new();
         for _ in 0..100 {
             text.extend_from_slice(&echantillon);
         }
-        // println!("text: {:?}", text);
 
         let (freq, encoded) = ArithmeticEncoder::encode(&text);
-
         let decoded = ArithmeticEncoder::decode(freq, encoded);
-
-        // for c in &decoded {
-        //     print!("{}", *c as char);
-        // }
-        // println!();
 
         assert_eq!(text, decoded);
     }
@@ -266,22 +250,14 @@ mod tests {
     #[test]
     fn arithmetic_extensive_test() {
         let echantillon: Vec<u8> = (0..256).into_iter().map(|x| x as u8).collect();
-        // println!("echantillon: {:?}", echantillon);
         let mut text: Vec<u8> = Vec::new();
+
         for _ in 0..3 {
             text.extend_from_slice(&echantillon);
         }
-        // println!("text: {:?}", text);
-        // return;
 
         let (freq, encoded) = ArithmeticEncoder::encode(&text);
-
         let decoded = ArithmeticEncoder::decode(freq, encoded);
-
-        // for c in &decoded {
-        //     print!("{}", *c as char);
-        // }
-        println!();
 
         assert_eq!(text, decoded);
     }
