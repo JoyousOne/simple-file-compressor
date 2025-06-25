@@ -5,7 +5,9 @@ use file_handler::{compress, uncompress};
 
 mod algorithms;
 mod big_num;
+mod bit_queue;
 mod compressed_buffer;
+mod fenwick_tree;
 mod file_handler;
 mod utils;
 mod varsize;
