@@ -7,6 +7,7 @@ pub mod ArithmeticEncoder {
         bit_queue::BitQueue,
         compressed_buffer::{Bit, CompressedBuffer},
         fenwick_tree::FenwickTree,
+        varsize::{encode_varsize, get_first_decoded},
     };
 
     struct Bounderies {
@@ -151,7 +152,7 @@ pub mod ArithmeticEncoder {
         )
     }
 
-    pub fn decode(last_byte_offset: u8, frequency: Vec<(u8, isize)>, encoded: Vec<u8>) -> Vec<u8> {
+    pub fn decode(last_byte_offset: u8, frequency: Vec<(u8, isize)>, encoded: &[u8]) -> Vec<u8> {
         // let mut cummul = 0;
 
         let cum_freq = FenwickTree::new(frequency);
@@ -252,13 +253,66 @@ pub mod ArithmeticEncoder {
         decoded
     }
 
-    // pub fn encode_with_metadatas(input: &[u8]) -> Vec<u8> {}
+    pub fn encode_with_metadatas(input: &[u8]) -> Vec<u8> {
+        let (bits_offset, frequency, encoded) = encode(input);
 
-    // pub fn decode_with_metadatas(input: &[u8]) -> Vec<u8> {}
+        // convert frequency to a frequency with variable size
+        let mut compressed_frequency = Vec::new();
+        for (char, num) in frequency {
+            compressed_frequency.push(char);
+            let var_num = encode_varsize(num as usize);
+            compressed_frequency.extend_from_slice(&var_num);
+        }
+        let compressed_frequency_size = encode_varsize(compressed_frequency.len());
+
+        // capacity => bits_offset + sizeof_frequency + frequency + encoded.len()
+        let mut encoded_with_meta_datas = Vec::with_capacity(
+            1 + compressed_frequency_size.len() + compressed_frequency.len() + encoded.len(),
+        );
+
+        encoded_with_meta_datas.push(bits_offset);
+        encoded_with_meta_datas.extend_from_slice(&compressed_frequency_size);
+        encoded_with_meta_datas.extend_from_slice(&compressed_frequency);
+        encoded_with_meta_datas.extend_from_slice(&encoded);
+
+        encoded_with_meta_datas
+    }
+
+    pub fn decode_with_metadatas(input: &[u8]) -> Vec<u8> {
+        let last_byte_offset = input[0];
+
+        // reformating the frequency
+        let (freq_size, last_byte_found) = get_first_decoded(&input[1..]);
+        let mut frequency = Vec::new();
+
+        let mut i = last_byte_found + 1;
+        while i < freq_size + 1 {
+            // getting the character
+            let c = input[i];
+
+            // getting the frequency of the found character
+            let (num, last_byte_found) = get_first_decoded(&input[i + 1..]);
+
+            // adding the frequency to the list and update the index
+            frequency.push((c, num as isize));
+            i += last_byte_found + 1;
+        }
+
+        // remaining bytes are the encoded content
+        let encoded = &input[i..];
+
+        let decoded = decode(last_byte_offset, frequency, encoded);
+
+        decoded
+    }
 }
 
 #[cfg(test)]
 mod tests {
+
+    use crate::algorithms::arithmetic_encoder::ArithmeticEncoder::{
+        decode_with_metadatas, encode_with_metadatas,
+    };
 
     use super::*;
 
@@ -267,7 +321,7 @@ mod tests {
         let text: Vec<u8> = "RGGRRRGGGB\n".bytes().collect();
 
         let (offset, freq, encoded) = ArithmeticEncoder::encode(&text);
-        let decoded = ArithmeticEncoder::decode(offset, freq, encoded);
+        let decoded = ArithmeticEncoder::decode(offset, freq, &encoded);
 
         assert_eq!(text, decoded);
     }
@@ -284,7 +338,7 @@ mod tests {
         }
 
         let (offset, freq, encoded) = ArithmeticEncoder::encode(&text);
-        let decoded = ArithmeticEncoder::decode(offset, freq, encoded);
+        let decoded = ArithmeticEncoder::decode(offset, freq, &encoded);
 
         assert_eq!(text, decoded);
     }
@@ -299,7 +353,17 @@ mod tests {
         }
 
         let (offset, freq, encoded) = ArithmeticEncoder::encode(&text);
-        let decoded = ArithmeticEncoder::decode(offset, freq, encoded);
+        let decoded = ArithmeticEncoder::decode(offset, freq, &encoded);
+
+        assert_eq!(text, decoded);
+    }
+
+    #[test]
+    fn arithmetic_encode_n_decode_with_metadatas() {
+        let text: Vec<u8> = "RGGRRRGGGB\n".bytes().collect();
+
+        let encoded = encode_with_metadatas(&text);
+        let decoded = decode_with_metadatas(&encoded);
 
         assert_eq!(text, decoded);
     }
