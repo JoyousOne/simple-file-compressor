@@ -3,7 +3,11 @@ pub mod ArithmeticEncoder {
     use num_bigint::BigUint;
     use std::collections::HashMap;
 
-    use crate::{bit_queue::BitQueue, fenwick_tree::FenwickTree};
+    use crate::{
+        bit_queue::BitQueue,
+        compressed_buffer::{Bit, CompressedBuffer},
+        fenwick_tree::FenwickTree,
+    };
 
     struct Bounderies {
         pub TOP_VALUE: BigUint,
@@ -32,7 +36,14 @@ pub mod ArithmeticEncoder {
     // NOTE: good ressources for implementation
     // https://github.com/tommyod/arithmetic-coding/blob/main/arithmetic_coding.py
     // https://dl.acm.org/doi/10.1145/214762.214771
-    pub fn encode(input: &[u8]) -> (Vec<(u8, isize)>, Vec<u8>) {
+    /// encode an array of bytes using the arithmetic encoding
+    ///
+    /// @**returns** (u8, Vec\<u8\>, Vec\<u8\>) => (
+    ///   bit index of the last byte (to offset the zeros that aren't a part of the last byte),
+    ///   single chars in order,
+    ///   the encoded indexes
+    /// )
+    pub fn encode(input: &[u8]) -> (u8, Vec<(u8, isize)>, Vec<u8>) {
         let mut frequency: HashMap<u8, usize> = HashMap::new();
 
         // get frequency
@@ -125,10 +136,22 @@ pub mod ArithmeticEncoder {
         let new_bits = bit_queue.bit_followed_by_inverted(bit);
         encoded.extend_from_slice(&new_bits);
 
-        (sorted_freq, encoded)
+        let mut compressed_buffer = CompressedBuffer::new();
+        for bit in encoded {
+            let new_bit = if bit == 0 { Bit::ZERO } else { Bit::ONE };
+            compressed_buffer.push_bit(new_bit);
+        }
+
+        let encoded_buffer = compressed_buffer.get_buffer();
+
+        (
+            compressed_buffer.get_current_bit_index(),
+            sorted_freq,
+            encoded_buffer,
+        )
     }
 
-    pub fn decode(frequency: Vec<(u8, isize)>, encoded: Vec<u8>) -> Vec<u8> {
+    pub fn decode(last_byte_offset: u8, frequency: Vec<(u8, isize)>, encoded: Vec<u8>) -> Vec<u8> {
         // let mut cummul = 0;
 
         let cum_freq = FenwickTree::new(frequency);
@@ -143,11 +166,26 @@ pub mod ArithmeticEncoder {
         // converting encoded value to Big num
         let mut value = BigUint::ZERO;
         let mut offset = 0;
-        for &bit in &encoded {
+
+        // shifting the bits of every encoded bytes execpt the last one
+        let first_bytes = &encoded[0..encoded.len() - 1];
+        for &byte in first_bytes {
+            for i in (0..8).rev() {
+                let bit = (byte >> i) & 1;
+                value = (value << 1) + bit as usize;
+                offset += 1;
+            }
+        }
+
+        // shifting n bits of the last encoded bytes, where n is 8 - (num of unused bits + 1)
+        let last_byte = encoded.last().unwrap();
+        for i in (8 - (last_byte_offset + 1)..8).rev() {
+            let bit = (last_byte >> i) & 1;
             value = (value << 1) + bit as usize;
             offset += 1;
         }
 
+        // shifting the value by the number of bits in order to scale the encoded value
         value <<= num_bits - offset;
 
         let mut decoded = Vec::new();
@@ -213,6 +251,10 @@ pub mod ArithmeticEncoder {
 
         decoded
     }
+
+    // pub fn encode_with_metadatas(input: &[u8]) -> Vec<u8> {}
+
+    // pub fn decode_with_metadatas(input: &[u8]) -> Vec<u8> {}
 }
 
 #[cfg(test)]
@@ -224,8 +266,8 @@ mod tests {
     fn arithmetic_simple_test() {
         let text: Vec<u8> = "RGGRRRGGGB\n".bytes().collect();
 
-        let (freq, encoded) = ArithmeticEncoder::encode(&text);
-        let decoded = ArithmeticEncoder::decode(freq, encoded);
+        let (offset, freq, encoded) = ArithmeticEncoder::encode(&text);
+        let decoded = ArithmeticEncoder::decode(offset, freq, encoded);
 
         assert_eq!(text, decoded);
     }
@@ -241,8 +283,8 @@ mod tests {
             text.extend_from_slice(&echantillon);
         }
 
-        let (freq, encoded) = ArithmeticEncoder::encode(&text);
-        let decoded = ArithmeticEncoder::decode(freq, encoded);
+        let (offset, freq, encoded) = ArithmeticEncoder::encode(&text);
+        let decoded = ArithmeticEncoder::decode(offset, freq, encoded);
 
         assert_eq!(text, decoded);
     }
@@ -256,8 +298,8 @@ mod tests {
             text.extend_from_slice(&echantillon);
         }
 
-        let (freq, encoded) = ArithmeticEncoder::encode(&text);
-        let decoded = ArithmeticEncoder::decode(freq, encoded);
+        let (offset, freq, encoded) = ArithmeticEncoder::encode(&text);
+        let decoded = ArithmeticEncoder::decode(offset, freq, encoded);
 
         assert_eq!(text, decoded);
     }
