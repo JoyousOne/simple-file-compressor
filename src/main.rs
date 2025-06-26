@@ -30,6 +30,7 @@ Options:
                                     - lzw, lempel-ziv-welch
                                     - bwt, burrows-wheeler, burrows-wheeler-transform
                                     - mtf, move-to-front
+                                    - arith, arithmetic
                                     - others to come soon
 ";
 

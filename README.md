@@ -28,13 +28,19 @@ You can use it to compress and decompress files using multiple algorithms in seq
 
 ## 🔧 Supported Algorithms
 
+### Compression algorithm
 - **Huffman Coding** (`huff`, `huffman`)
 - **LZW (Lempel-Ziv-Welch)** (`lzw`, `lempel-ziv-welch`)
-- **Burrows-Wheeler Transform** (`bwt`, `burrows-wheeler-transform`)
-- **Move-To-Front** (`mtf`, `move-to-front`)
+- **Arithmetic coding** (`arith`, `arithmetic`)
 - _(More to come soon!)_
 
-> NOTE: words following the algorithm name are use to reorder the algorithm usage.
+### Misc.
+> Other transformations or algorithms that complement compression
+
+- **Burrows-Wheeler Transform** (`bwt`, `burrows-wheeler-transform`)
+- **Move-To-Front** (`mtf`, `move-to-front`)
+
+> NOTE: words following the algorithm name are use to reorder the algorithm usage. Please consult [Manual](#manual) to know more.
 
 ## Installation
 
@@ -75,6 +81,7 @@ Options:
                                     - lzw, lempel-ziv-welch
                                     - bwt, burrows-wheeler, burrows-wheeler-transform
                                     - mtf, move-to-front
+                                    - arith, arithmetic
                                     - others to come soon
 ```
 
@@ -159,16 +166,28 @@ simple-file-compressor --uncompress --algo=bwt --algo=mtf --algo=huff --algo=lzw
 
 > ![lzw-slides](assets/demo_lzw.pdf)
 
+### Good ressources:
+
+
+#### lzw:
+
+- https://www.youtube.com/watch?v=gqM3j2IRQH4
+
+### arithmetic coding
+
+- https://dl.acm.org/doi/pdf/10.1145/214762.214771
+- https://github.com/tommyod/arithmetic-coding/blob/main/arithmetic_coding.py
+
 ## TODO
 
 - ~~Add option to combine algorithm like one would like~~
 - ~~Burrows-Wheeler Transform~~
  - ~~move to front~~
-- arithmetic compression
+- ~~arithmetic compression~~
+- dynamic markov compression
 - asymmetric numeral systems (ANS)
     excellent YouTube video about it: https://youtu.be/RFWJM8JMXBs?si=PXemuPzI_-kTOMfj
     worth looking at
     - range ANS (rANS)
     - Uniform Birary Variant (uABS)
     
-- Possibly add option for Dynamic Markov Compression
