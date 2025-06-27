@@ -5,20 +5,18 @@ use std::{
 };
 
 use crate::algorithms::{
-    burrows_wheeler::BurrowsWheeler, huffman_tree::HuffmanTree, lzw_encoder::LZWEncoder,
-    move_to_front::MoveToFront,
+    arithmetic_encoder::ArithmeticEncoder, burrows_wheeler::BurrowsWheeler,
+    huffman_tree::HuffmanTree, lzw_encoder::LZWEncoder, move_to_front::MoveToFront,
 };
 
 macro_rules! match_algo {
-    ($algo:expr => {$huff:expr, $lzw:expr, $bwt:expr, $mtf:expr}) => {
+    ($algo:expr => {$huff:expr, $lzw:expr, $bwt:expr, $mtf:expr, $arith:expr}) => {
         match $algo {
             "huff" | "huffman" => $huff,
             "lzw" | "lempel-ziv-welch" => $lzw,
             "bwt" | "burrows-wheeler" | "burrows-wheeler-transform" => $bwt,
             "mtf" | "move-to-front" => $mtf,
-            // TODO YOU ARE HERE
-            // add burrows_wheeler_transform
-            // add move_to_front
+            "arith" | "arithmetic" => $arith,
             _ => panic!("Invalid algorithm selected: {}", $algo),
             // _ => $default,
         }
@@ -62,7 +60,8 @@ fn apply_compressing_algos(algos: &mut Vec<&str>, to_encode: &[u8]) -> Vec<u8> {
             HuffmanTree::encode_with_metadatas(to_encode),
             LZWEncoder::encode_with_metadatas(to_encode),
             BurrowsWheeler::encode_with_metadata(to_encode, true),
-            MoveToFront::encode(to_encode)
+            MoveToFront::encode(to_encode),
+            ArithmeticEncoder::encode_with_metadatas(to_encode)
         }
     );
 
@@ -81,7 +80,8 @@ fn apply_uncompressing_algos(algos: &mut Vec<&str>, to_encode: &[u8]) -> Vec<u8>
             HuffmanTree::decode_with_metadatas(to_encode),
             LZWEncoder::decode_with_metadatas(to_encode),
             BurrowsWheeler::decode_with_metadata(to_encode),
-            MoveToFront::decode(to_encode)
+            MoveToFront::decode(to_encode),
+            ArithmeticEncoder::decode_with_metadatas(to_encode)
          }
     );
 
