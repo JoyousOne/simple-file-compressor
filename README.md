@@ -32,6 +32,7 @@ You can use it to compress and decompress files using multiple algorithms in seq
 - **Huffman Coding** (`huff`, `huffman`)
 - **LZW (Lempel-Ziv-Welch)** (`lzw`, `lempel-ziv-welch`)
 - **Arithmetic coding** (`arith`, `arithmetic`)
+- **Run length-encoding** (`rle`, `run-length-encoding`)
 - _(More to come soon!)_
 
 ### Misc.

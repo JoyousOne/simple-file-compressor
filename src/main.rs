@@ -31,6 +31,7 @@ Options:
                                     - bwt, burrows-wheeler, burrows-wheeler-transform
                                     - mtf, move-to-front
                                     - arith, arithmetic
+                                    - rle, run-length-encoding
                                     - others to come soon
 ";
 

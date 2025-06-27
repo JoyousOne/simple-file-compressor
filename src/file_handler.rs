@@ -7,16 +7,18 @@ use std::{
 use crate::algorithms::{
     arithmetic_encoder::ArithmeticEncoder, burrows_wheeler::BurrowsWheeler,
     huffman_tree::HuffmanTree, lzw_encoder::LZWEncoder, move_to_front::MoveToFront,
+    run_length_encoding::RLE,
 };
 
 macro_rules! match_algo {
-    ($algo:expr => {$huff:expr, $lzw:expr, $bwt:expr, $mtf:expr, $arith:expr}) => {
+    ($algo:expr => {$huff:expr, $lzw:expr, $bwt:expr, $mtf:expr, $arith:expr, $rle:expr}) => {
         match $algo {
             "huff" | "huffman" => $huff,
             "lzw" | "lempel-ziv-welch" => $lzw,
             "bwt" | "burrows-wheeler" | "burrows-wheeler-transform" => $bwt,
             "mtf" | "move-to-front" => $mtf,
             "arith" | "arithmetic" => $arith,
+            "rle" | "run-length-encoding" => $rle,
             _ => panic!("Invalid algorithm selected: {}", $algo),
             // _ => $default,
         }
@@ -61,7 +63,8 @@ fn apply_compressing_algos(algos: &mut Vec<&str>, to_encode: &[u8]) -> Vec<u8> {
             LZWEncoder::encode_with_metadatas(to_encode),
             BurrowsWheeler::encode_with_metadata(to_encode, true),
             MoveToFront::encode(to_encode),
-            ArithmeticEncoder::encode_with_metadatas(to_encode)
+            ArithmeticEncoder::encode_with_metadatas(to_encode),
+            RLE::encode(to_encode)
         }
     );
 
@@ -72,16 +75,17 @@ fn apply_compressing_algos(algos: &mut Vec<&str>, to_encode: &[u8]) -> Vec<u8> {
     encoded
 }
 
-fn apply_uncompressing_algos(algos: &mut Vec<&str>, to_encode: &[u8]) -> Vec<u8> {
+fn apply_uncompressing_algos(algos: &mut Vec<&str>, to_decode: &[u8]) -> Vec<u8> {
     let algo = algos.pop().unwrap();
 
     let mut decoded = match_algo!(
         algo => {
-            HuffmanTree::decode_with_metadatas(to_encode),
-            LZWEncoder::decode_with_metadatas(to_encode),
-            BurrowsWheeler::decode_with_metadata(to_encode),
-            MoveToFront::decode(to_encode),
-            ArithmeticEncoder::decode_with_metadatas(to_encode)
+            HuffmanTree::decode_with_metadatas(to_decode),
+            LZWEncoder::decode_with_metadatas(to_decode),
+            BurrowsWheeler::decode_with_metadata(to_decode),
+            MoveToFront::decode(to_decode),
+            ArithmeticEncoder::decode_with_metadatas(to_decode),
+            RLE::decode(to_decode)
          }
     );
 
