@@ -39,14 +39,42 @@ struct Node {
 }
 
 impl PartialOrd for HeapNode {
+    // fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+    //     other.frequency.partial_cmp(&self.frequency)
+    // }
+
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
-        other.frequency.partial_cmp(&self.frequency)
+        match other.frequency.partial_cmp(&self.frequency) {
+            Some(Ordering::Equal) => {
+                // We prioritize the node with nothing inside
+                match (self.c.is_none(), other.c.is_none()) {
+                    (true, false) => Some(Ordering::Greater),
+                    (false, true) => Some(Ordering::Less),
+                    _ => Some(Ordering::Equal),
+                }
+            }
+            other => other,
+        }
     }
 }
 
 impl Ord for HeapNode {
+    // fn cmp(&self, other: &Self) -> Ordering {
+    //     other.frequency.cmp(&self.frequency)
+    // }
+
     fn cmp(&self, other: &Self) -> Ordering {
-        other.frequency.cmp(&self.frequency)
+        match other.frequency.cmp(&self.frequency) {
+            Ordering::Equal => {
+                // We prioritize the node with nothing inside
+                match (self.c.is_none(), other.c.is_none()) {
+                    (true, false) => Ordering::Greater,
+                    (false, true) => Ordering::Less,
+                    _ => Ordering::Equal,
+                }
+            }
+            other => other,
+        }
     }
 }
 
